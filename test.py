@@ -1,0 +1,109 @@
+import os
+from pathlib import Path
+from transformers import T5Tokenizer, T5ForConditionalGeneration
+from tqdm import tqdm
+import argparse
+import wandb
+from os.path import join
+
+from util import map_ring_token, map_multiset_token
+from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
+
+
+def predict_with_cot(hparams):
+    architecture = hparams.architecture
+    cot_mode_multiset = hparams.cot_mode_multiset
+    cot_mode_ring = hparams.cot_mode_ring
+    cot_mode_fragment = hparams.cot_mode_fragment
+    
+    
+    task = 'caption2smiles'
+
+    tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{architecture}-{task}", model_max_length=512)
+    model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{architecture}-{task}')
+    
+    device = 'cuda:0'
+    model.to(device)
+    
+    smiles_list_path = os.path.join('predictions', f"{architecture}-{task}.txt")
+    smiles_pair_list = [
+    [" ".join(pair.split()[:-2]), pair.split()[-2], pair.split()[-1]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+    ][1:]
+    description_list = [pair[0] for pair in smiles_pair_list]
+    gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+
+    ring_cot_list = map_ring_token(gt_smiles_list)
+    multiset_cot_list = map_multiset_token(gt_smiles_list, mode=cot_mode_multiset)
+    
+
+    run_name = ""
+    if cot_mode_multiset in ['simple', 'full']:
+        run_name += f'-multiset({cot_mode_multiset})'
+    if cot_mode_ring:
+        run_name += '-ring'
+    if cot_mode_fragment:
+        run_name += '-frag'
+
+
+    prediction_list= []
+    for description, ring_cot, multiset_cot in zip(tqdm(description_list), ring_cot_list, multiset_cot_list):
+        input_text = description
+        if cot_mode_ring:
+            input_text += ring_cot
+        if cot_mode_multiset in ['simple', 'full']:
+            input_text += multiset_cot
+        # TODO: fix to multiple inputs (for faster generation)
+        input_ids = tokenizer(input_text, return_tensors="pt").input_ids
+        outputs = model.generate(input_ids.to(device), num_beams=5, max_length=512)
+        prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        prediction_list.append(prediction)
+
+    with open(f'predictions/cot/{architecture}-{task}{run_name}.txt', 'w') as f:
+        f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
+        for desc, rt, ot in zip(description_list, gt_smiles_list, prediction_list):
+            f.write(desc + '\t' + rt + '\t' + ot + '\n')
+
+@staticmethod
+def add_args(parser):
+    parser.add_argument("--architecture", type=str, default='molt5-base')
+    parser.add_argument("--cot_mode_multiset", type=str, default='full')
+    parser.add_argument("--cot_mode_fragment", action='store_true')
+    parser.add_argument("--cot_mode_ring", action='store_true')
+    parser.add_argument("--wandb_mode", type=str, default='online')
+
+
+    return parser
+
+def evaluate(architecture, task, run_name):
+    file_name = f'{architecture}-{task}{run_name}.txt'
+    file_path = join('predictions', 'cot', file_name)
+    bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_path)
+    validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_path, 2)
+    fcd_metric_score = fcd_metric.evaluate(file_path)
+    # wandb.log(f'For {file_name}\n')
+    wandb.log({"BLEU": round(bleu_score, 3), "Exact": round(exact_match_score, 3),
+               "Levenshtein": round(levenshtein_score, 3), "MACCS FTS": round(maccs_sims_score, 3),
+                "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
+                "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
+               })
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    add_args(parser)
+    hparams = parser.parse_args()
+    run_name = ""
+    if hparams.cot_mode_multiset in ['simple', 'full']:
+        run_name += f'-multiset({hparams.cot_mode_multiset})'
+    if hparams.cot_mode_ring:
+        run_name += '-ring'
+    if hparams.cot_mode_fragment:
+        run_name += '-frag'
+    wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}', mode=hparams.wandb_mode)
+    wandb.config.update(hparams)
+    
+    predict_with_cot(hparams)
+    evaluate(hparams.architecture, 'caption2smiles', run_name)
+    
+    wandb.finish()
+    
+    
