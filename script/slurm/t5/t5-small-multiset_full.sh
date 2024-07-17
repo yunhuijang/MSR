@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J molt5-base-multi_full
+#SBATCH -J t5-small-multi_full
 #SBATCH -p A5000
 #SBATCH --gres=gpu:1
 #SBATCH -o sbatch_log/%x.out
@@ -21,6 +21,6 @@ date
 nvidia-smi
 
 srun python test.py \
---architecture molt5-base \
+--architecture t5-v1_1-small \
 --cot_mode_multiset full
 
