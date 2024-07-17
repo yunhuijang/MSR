@@ -22,5 +22,6 @@ nvidia-smi
 
 srun python test.py \
 --architecture molt5-small \
---cot_mode_ring 
+--cot_mode_ring \
+--cot_mode_multiset None
 
