@@ -55,7 +55,9 @@ def evaluate(input_file, morgan_r, verbose=False):
     enum_list = outputs
 
     for i, (desc, gt_m, ot_m) in enumerate(enum_list):
-
+        if gt_m is None:
+            continue
+        
         if i % 100 == 0:
             if verbose: print(i, 'processed.')
 
