@@ -14,7 +14,7 @@ def map_token_name():
     node_name_dict = {"C": "carbon", "F": 'fluorine', "O": "oxygen", "N": "nitrogen", "H": "hydrogen",
                       "Br": 'bromine', "Cl": 'chlorine', "S": 'sulfur', "P": 'phosphorus', "I": "iodine",
                       "c": "aromatic carbon", "n": "aromatic nitrogen", "o": "aromatic oxygen", "s": "aromatic sulfur"}
-    bond_name_dict = {"-": "single", "=": "double", "#": "triple", "/": "single bond adjacent to double"}
+    bond_name_dict = {"-": "single", "=": "double", "#": "triple", "/": "single bond adjacent to double", "\\": "single bond adjacent to double"}
     
     for node_token in NODE_TOKENS:
         name = ""
@@ -122,3 +122,20 @@ def map_fragment_token(smiles_list, data_name='qm9', cot_multiset_mode=False, co
     frag_sequences = [torch.LongTensor([frag_token_to_id[n] for n in fl]) for fl in frag_list]
     
     return frag_sequences
+
+
+def canonicalize(smiles, is_kekulize=False):
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            return None
+
+        smiles = Chem.MolToSmiles(mol, kekuleSmiles=is_kekulize)
+    except:
+        return None   
+
+
+    if len(smiles) == 0:
+        return None
+
+    return smiles

@@ -31,7 +31,7 @@ NODE_TOKENS = [
     # "[n+]","[n-]","[nH+]","[nH]","[o+]","[s+]","[C-]","[c-]","[cH-]", "[C]", "[SH]", "[CH]","[IH]", "[IH2]", "[I]", "[I+]", "[I-]",
     # "c","n","o","s"
     ]
-BOND_TOKENS = ["-", "=", "#", "/"]
+BOND_TOKENS = ["-", "=", "#", "/", "\\"]
 
 # multiset tokens
 END_OF_COUNT_TOKEN = "[eoc]"
@@ -67,7 +67,7 @@ INDEX_TOKENS.extend([f"I{i}" for i in range(40)])
 
 
 TOKENS = [PAD_TOKEN, BOS_TOKEN, EOS_TOKEN, *NODE_TOKENS, *BOND_TOKENS,
-    "(",")","1","2","3","4","5","6","7","8","9","\\"
+    "(",")","1","2","3","4","5","6","7","8","9"
     # # valence tokens
     # "[1]", "[2]", "[3]", "[4]", "[5]", "[6]", "[7]", "[8]",
     # # ring tokens
