@@ -110,8 +110,13 @@ def add_args(parser):
 
     return parser
 
-def evaluate(architecture, task, run_name):
-    file_name = f'{architecture}-{task}{run_name}.txt'
+def evaluate(architecture, task, run_name, split='test'):
+    if split == 'test':
+        file_name = f'{architecture}-{task}{run_name}.txt'
+        
+    elif split == 'train':
+        file_name = f'{architecture}-{task}{run_name}-{split}.txt'
+    # file_name = f'{architecture}-{task}{run_name}.txt'
     file_path = join('predictions', 'cot', file_name)
     bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_path)
     validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_path, 2)
@@ -139,7 +144,7 @@ if __name__ == "__main__":
     
     predict_with_cot(hparams)
     
-    evaluate(hparams.architecture, 'caption2smiles', run_name)
+    evaluate(hparams.architecture, 'caption2smiles', run_name, hparams.split)
     
     wandb.finish()
     
