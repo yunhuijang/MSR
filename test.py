@@ -26,7 +26,7 @@ def predict_with_cot(hparams):
     model.to(device)
     
     if split == 'test':
-        smiles_list_path = os.path.join('predictions', f"{architecture}-{task}.txt")
+        smiles_list_path = os.path.join('predictions', f"{architecture}{task}.txt")
         smiles_pair_list = [
         [" ".join(pair.split()[:-2]), pair.split()[-2], pair.split()[-1]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
         ][1:]
