@@ -9,6 +9,7 @@ from os.path import join
 from util import map_ring_token, map_multiset_token
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 
+os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 def predict_with_cot(hparams):
     architecture = hparams.architecture
