@@ -23,6 +23,6 @@ nvidia-smi
 srun python test.py \
 --architecture molt5-small \
 --cot_mode_multiset None \
---finetune_task \
+--finetune_task "" \
 --split test
 
