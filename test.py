@@ -50,7 +50,7 @@ def predict_with_cot(hparams):
 
     run_name = ""
     if cot_mode_multiset in ['simple', 'full']:
-        run_name += f'-multiset({cot_mode_multiset})'
+        run_name += f'-multiset_{cot_mode_multiset}'
     if cot_mode_ring:
         run_name += '-ring'
     if cot_mode_fragment:
@@ -102,7 +102,7 @@ def add_args(parser):
     parser.add_argument("--cot_mode_ring", action='store_true')
     parser.add_argument("--wandb_mode", type=str, default='disabled')
     parser.add_argument("--split", type=str, default='train')
-    parser.add_argument("--batch_size_generate", type=int, default=64)
+    parser.add_argument("--batch_size_generate", type=int, default=32)
 
 
     return parser
