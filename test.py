@@ -17,12 +17,10 @@ def predict_with_cot(hparams):
     cot_mode_fragment = hparams.cot_mode_fragment
     split = hparams.split
     batch_size_generate = hparams.batch_size_generate
-    
-    
-    task = 'caption2smiles'
+    task = hparams.finetune_task
 
-    tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{architecture}-{task}", model_max_length=512)
-    model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{architecture}-{task}')
+    tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{architecture}{task}", model_max_length=512)
+    model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{architecture}{task}')
     
     device = 'cuda:0'
     model.to(device)
@@ -103,6 +101,7 @@ def add_args(parser):
     parser.add_argument("--wandb_mode", type=str, default='online')
     parser.add_argument("--split", type=str, default='train')
     parser.add_argument("--batch_size_generate", type=int, default=16)
+    parser.add_argument("--finetune_task", type=str, default='-caption2smiles')
 
 
     return parser
