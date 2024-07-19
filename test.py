@@ -100,9 +100,9 @@ def add_args(parser):
     parser.add_argument("--cot_mode_multiset", type=str, default='simple')
     parser.add_argument("--cot_mode_fragment", action='store_true')
     parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--wandb_mode", type=str, default='disabled')
+    parser.add_argument("--wandb_mode", type=str, default='online')
     parser.add_argument("--split", type=str, default='train')
-    parser.add_argument("--batch_size_generate", type=int, default=64)
+    parser.add_argument("--batch_size_generate", type=int, default=16)
 
 
     return parser
