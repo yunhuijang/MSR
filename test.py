@@ -69,21 +69,8 @@ def predict_with_cot(hparams):
             input_text = [it+rc for it, rc in zip(input_text, multiset_cot_list[index:index+batch_size_generate])]
         input_ids = tokenizer(input_text, return_tensors="pt", padding=True).input_ids
         outputs = model.generate(input_ids.to(device), num_beams=5, max_length=512)
-        prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        prediction_list.append(prediction)
-    
-    # for description, ring_cot, multiset_cot in zip(tqdm(description_list), ring_cot_list, multiset_cot_list):
-    #     input_text = description
-    #     if cot_mode_ring:
-    #         input_text += ring_cot
-    #     if cot_mode_multiset in ['simple', 'full']:
-    #         input_text += multiset_cot
-    #     # TODO: fix to multiple inputs (for faster generation)
-    #     # input_ids = tokenizer(input_text, return_tensors="pt").input_ids
-    #     input_ids = tokenizer(description_list[index:index+batch_size_generate], return_tensors="pt", padding=True).input_ids
-    #     outputs = model.generate(input_ids.to(device), num_beams=5, max_length=512)
-    #     prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    #     prediction_list.append(prediction)
+        prediction = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
+        prediction_list.extend(prediction)
 
     if split == 'test':
         file_name = f'predictions/cot/{architecture}-{task}{run_name}'
@@ -95,20 +82,8 @@ def predict_with_cot(hparams):
         f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
         for desc, rt, ot in zip(description_list, gt_smiles_list, prediction_list):
             f.write(desc + '\t' + rt + '\t' + ot + '\n')
-
-@staticmethod
-def add_args(parser):
-    parser.add_argument("--architecture", type=str, default='molt5-small')
-    parser.add_argument("--cot_mode_multiset", type=str, default='simple')
-    parser.add_argument("--cot_mode_fragment", action='store_true')
-    parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--wandb_mode", type=str, default='online')
-    parser.add_argument("--split", type=str, default='train')
-    parser.add_argument("--batch_size_generate", type=int, default=16)
-    parser.add_argument("--finetune_task", type=str, default='-caption2smiles')
-
-
-    return parser
+            
+    return prediction_list
 
 def evaluate(architecture, task, run_name, split='test'):
     if split == 'test':
@@ -118,6 +93,20 @@ def evaluate(architecture, task, run_name, split='test'):
         file_name = f'{architecture}-{task}{run_name}-{split}.txt'
     # file_name = f'{architecture}-{task}{run_name}.txt'
     file_path = join('predictions', 'cot', file_name)
+    
+    smiles_list_path = os.path.join(file_path)
+    smiles_pair_list = [
+    [" ".join(pair.split()[0]), pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+    ][1:]
+    # description_list = [pair[0] for pair in smiles_pair_list]
+    # gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+    # output_list = [pair[2] for pair in smiles_pair_list]
+    
+    table = wandb.Table(data=smiles_pair_list,
+                        columns=['description', 'gt_smiles', 'predicted_smiles'])
+    
+    wandb.log({f"Prediction": table})
+    
     bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_path)
     validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_path, 2)
     fcd_metric_score = fcd_metric.evaluate(file_path)
@@ -127,6 +116,22 @@ def evaluate(architecture, task, run_name, split='test'):
                 "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
                 "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
                })
+
+@staticmethod
+def add_args(parser):
+    parser.add_argument("--architecture", type=str, default='molt5-small')
+    parser.add_argument("--cot_mode_multiset", type=str, default='')
+    parser.add_argument("--cot_mode_fragment", action='store_true')
+    parser.add_argument("--cot_mode_ring", action='store_true')
+    parser.add_argument("--wandb_mode", type=str, default='disabled')
+    parser.add_argument("--split", type=str, default='train')
+    parser.add_argument("--batch_size_generate", type=int, default=16)
+    parser.add_argument("--finetune_task", type=str, default='-caption2smiles')
+
+
+    return parser
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
