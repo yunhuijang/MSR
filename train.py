@@ -37,6 +37,8 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
         ][1:]
+        if self.hparams.test:
+            smiles_pair_list[:100]
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
         id_list = [pair[0] for pair in smiles_pair_list]
@@ -71,18 +73,20 @@ class FineTuneTranslator(pl.LightningModule):
         # self.pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(checkpoint)
         # self.tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         self.tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{hparams.architecture}{hparams.task}", model_max_length=hparams.max_length)
-        # TODO: need to change the model to w/o FT
+        # TODO: tokenizer training?
         self.pretrained_model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{hparams.architecture}{hparams.task}')
         self.data_collator = DataCollatorForSeq2Seq(tokenizer=self.tokenizer, model=self.pretrained_model)
         
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
+        if self.hparams.cot_mode_multiset in ['simple', 'full'] or self.hparams.cot_mode_ring:
+            targets = [f" {target}" for target in targets]
         if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            inputs = [f"{input}{cot_multiset}" for input, cot_multiset in zip(inputs, examples['cot_multiset'])]
+            targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
             
         if self.hparams.cot_mode_ring:
-            inputs = [f"{input}{cot_ring}" for input, cot_ring in zip(inputs, examples['cot_ring'])]
+            targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
         
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
@@ -96,13 +100,14 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=128)
-        parser.add_argument("--eval_batch_size", type=int, default=128)
+        parser.add_argument("--train_batch_size", type=int, default=8)
+        parser.add_argument("--eval_batch_size", type=int, default=8)
         parser.add_argument("--weight_decay", type=float, default=0.01)
-        parser.add_argument("--epochs", type=int, default=50000)
-        parser.add_argument("--task", type=str, default='-caption2smiles', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=3)
-        parser.add_argument('--max_length', type=int, default=512)
+        parser.add_argument("--epochs", type=int, default=100000)
+        parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=100)
+        parser.add_argument('--max_length', type=int, default=1024)
+        parser.add_argument('--test', action='store_true')
 
         return parser
 
@@ -116,6 +121,9 @@ class WandbPredictionProgressCallback(WandbCallback):
     
     def postprocess_text(self, preds, labels):
         preds = [pred.strip() for pred in preds]
+        
+        
+        
         labels = [label.strip() for label in labels]
 
         return preds, labels
@@ -136,9 +144,10 @@ class WandbPredictionProgressCallback(WandbCallback):
             predictions = self.trainer.predict(self.test_dataset)
             preds, labels = predictions.predictions, predictions.label_ids
             
-            predictions = self.trainer.predict(self.test_dataset)
+            # predictions = self.trainer.predict(self.test_dataset)
             if isinstance(preds, tuple):
                 preds = preds[0]
+            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
             decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
             labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
@@ -151,20 +160,31 @@ class WandbPredictionProgressCallback(WandbCallback):
             file_name = f'predictions/ft_cot/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
 
-            result_data = [description_list, decoded_labels, decoded_preds]
-            result_data = list(map(list, zip(*result_data)))
+            gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
+            predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
             
             with open(f'{file_name}', 'w') as f:
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
-                for desc, rt, ot in zip(description_list, decoded_labels, decoded_preds):
+                for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
             
             # self._wandb.log({"sample_predictions": records_table})
             
+            if self.hparams.cot_mode_multiset in ['simple', 'full'] or self.hparams.cot_mode_ring:
+                columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
+                gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
+                predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+                result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
+            else:
+                columns = ['description', 'gt_smiles', 'predicted_smiles']
+                result_data = [description_list, decoded_labels, decoded_preds]
+            
+            
+            result_data = list(map(list, zip(*result_data)))
+            
             # wandb logging
             table = self._wandb.Table(data=result_data,
-                        columns=['description', 'gt_smiles', 'predicted_smiles'])
+                        columns=columns)
             self._wandb.log({f"Prediction": table})
                     
             bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_name)
