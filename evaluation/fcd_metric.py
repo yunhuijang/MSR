@@ -41,6 +41,9 @@ def evaluate(input_file, verbose=False):
     canon_gt_smis = [w for w in canonical_smiles(gt_smis) if w is not None]
     canon_ot_smis = [w for w in canonical_smiles(ot_smis) if w is not None]
 
+    if len(canon_ot_smis) == 0:
+        return 100000
+    
     fcd_sim_score = get_fcd(canon_gt_smis, canon_ot_smis, model)
     if verbose:
         print('FCD Similarity:', fcd_sim_score)

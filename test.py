@@ -41,7 +41,7 @@ def predict_with_cot(hparams):
         smiles_list_path = os.path.join('ChEBI-20_data', 'train.txt')
         smiles_pair_list = [
         [" ".join(pair.split()[0]), pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:50] # 3301
+        ][1:][:3301] # 3301
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
     
