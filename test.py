@@ -41,7 +41,7 @@ def predict_with_cot(hparams):
         smiles_list_path = os.path.join('ChEBI-20_data', 'train.txt')
         smiles_pair_list = [
         [" ".join(pair.split()[0]), pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:3301]
+        ][1:][:50] # 3301
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
     
@@ -73,10 +73,10 @@ def predict_with_cot(hparams):
         prediction_list.extend(prediction)
 
     if split == 'test':
-        file_name = f'predictions/cot/{architecture}-{task}{run_name}'
+        file_name = f'predictions/cot/{architecture}{task}{run_name}'
         
     elif split == 'train':
-        file_name = f'predictions/cot/{architecture}-{task}{run_name}-{split}'
+        file_name = f'predictions/cot/{architecture}{task}{run_name}-{split}'
     
     with open(f'{file_name}.txt', 'w') as f:
         f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
@@ -87,16 +87,16 @@ def predict_with_cot(hparams):
 
 def evaluate(architecture, task, run_name, split='test'):
     if split == 'test':
-        file_name = f'{architecture}-{task}{run_name}.txt'
+        file_name = f'{architecture}{task}{run_name}.txt'
         
     elif split == 'train':
-        file_name = f'{architecture}-{task}{run_name}-{split}.txt'
+        file_name = f'{architecture}{task}{run_name}-{split}.txt'
     # file_name = f'{architecture}-{task}{run_name}.txt'
     file_path = join('predictions', 'cot', file_name)
     
     smiles_list_path = os.path.join(file_path)
     smiles_pair_list = [
-    [" ".join(pair.split()[0]), pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+    [" ".join(pair.split()[:-2]), pair.split()[-2], pair.split()[-1]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
     ][1:]
     # description_list = [pair[0] for pair in smiles_pair_list]
     # gt_smiles_list = [pair[1] for pair in smiles_pair_list]
@@ -123,7 +123,7 @@ def add_args(parser):
     parser.add_argument("--cot_mode_multiset", type=str, default='')
     parser.add_argument("--cot_mode_fragment", action='store_true')
     parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--wandb_mode", type=str, default='disabled')
+    parser.add_argument("--wandb_mode", type=str, default='online')
     parser.add_argument("--split", type=str, default='train')
     parser.add_argument("--batch_size_generate", type=int, default=16)
     parser.add_argument("--finetune_task", type=str, default='-caption2smiles')
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     
     predict_with_cot(hparams)
     
-    evaluate(hparams.architecture, 'caption2smiles', run_name, hparams.split)
+    evaluate(hparams.architecture, hparams.finetune_task, run_name, hparams.split)
     
     wandb.finish()
     
