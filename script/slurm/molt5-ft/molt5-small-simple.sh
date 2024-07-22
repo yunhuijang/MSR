@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J ft-small-simple
-#SBATCH -p A5000
+#SBATCH -p A100-40GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -24,7 +24,9 @@ srun python train.py \
 --architecture molt5-base \
 --cot_mode_multiset simple \
 --wandb_mode online \
---test
+--test \
+--train_batch_size 64 \
+--eval_batch_size 64
 
 
 
