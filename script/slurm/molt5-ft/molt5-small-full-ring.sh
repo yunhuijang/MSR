@@ -22,7 +22,8 @@ nvidia-smi
 
 srun python train.py \
 --architecture molt5-small \
---cot_mode_multiset simple \
+--cot_mode_multiset full \
+--cot_mode_ring \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8

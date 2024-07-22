@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-small-full-ring
+#SBATCH -J ft-base-full
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -21,8 +21,8 @@ date
 nvidia-smi
 
 srun python train.py \
---architecture molt5-small \
---cot_mode_multiset simple \
+--architecture molt5-base \
+--cot_mode_multiset full \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8

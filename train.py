@@ -36,9 +36,9 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
-        if self.hparams.test:
-            smiles_pair_list[:100]
+        ][1:][:100]
+        # if self.hparams.test:
+            # smiles_pair_list[:100]
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
         id_list = [pair[0] for pair in smiles_pair_list]
@@ -98,7 +98,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_multiset", type=str, default='simple')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--wandb_mode", type=str, default='disabled')
+        parser.add_argument("--wandb_mode", type=str, default='online')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=8)
         parser.add_argument("--eval_batch_size", type=int, default=8)
@@ -139,7 +139,8 @@ class WandbPredictionProgressCallback(WandbCallback):
         # control the frequency of logging by logging the predictions
         # every `freq` epochs
         
-        if (state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0:
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
+            print("Start evaluation")
             # generate predictions
             predictions = self.trainer.predict(self.test_dataset)
             preds, labels = predictions.predictions, predictions.label_ids
@@ -170,7 +171,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             
             # self._wandb.log({"sample_predictions": records_table})
             
-            if self.hparams.cot_mode_multiset in ['simple', 'full'] or self.hparams.cot_mode_ring:
+            if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
                 columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
                 gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
                 predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
@@ -230,6 +231,7 @@ if __name__ == "__main__":
     
     HfFolder.save_token('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')
     
+    # TODO: load model from checkpoint
     training_args = Seq2SeqTrainingArguments(
         output_dir=f"output/{wandb.run.id}",
         eval_strategy="epoch",
