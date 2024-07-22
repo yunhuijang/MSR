@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J molt5-small-simple
+#SBATCH -J ft-small-simple
 #SBATCH -p A5000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -23,7 +23,8 @@ nvidia-smi
 srun python train.py \
 --architecture molt5-base \
 --cot_mode_multiset simple \
---wandb_mode online
+--wandb_mode online \
+--test
 
 
 
