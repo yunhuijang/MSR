@@ -20,7 +20,7 @@ import torch
 
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util import map_ring_token, map_multiset_token
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot
 
 class FineTuneTranslator(pl.LightningModule):
     def __init__(self, hparams):
@@ -46,12 +46,16 @@ class FineTuneTranslator(pl.LightningModule):
         data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
         
         if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            multiset_cot_list = map_multiset_token(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
+            multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
             data_dict['cot_multiset'] = multiset_cot_list
         
         if self.hparams.cot_mode_ring:
-            ring_cot_list = map_ring_token(gt_smiles_list)
+            ring_cot_list = map_ring_cot(gt_smiles_list)
             data_dict['cot_ring'] = ring_cot_list
+            
+        if self.hparams.cot_mode_fragment:
+            fragment_cot_list = map_fragment_cot(gt_smiles_list)
+            data_dict['cot_fragment'] = fragment_cot_list
             
         dataset = Dataset.from_dict(data_dict)
         
@@ -91,7 +95,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-small')
-        parser.add_argument("--cot_mode_multiset", type=str, default='simple')
+        parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
@@ -99,11 +103,12 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--train_batch_size", type=int, default=8)
         parser.add_argument("--eval_batch_size", type=int, default=8)
         parser.add_argument("--weight_decay", type=float, default=0.01)
-        parser.add_argument("--epochs", type=int, default=100000)
+        parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=100)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=1024)
         parser.add_argument('--test', action='store_true')
+        parser.add_argument('--run_id', type=str, default='')
 
         return parser
 
@@ -209,7 +214,7 @@ if __name__ == "__main__":
     HfFolder.save_token('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')
     
 
-    if hparams.run_id == None:
+    if hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
@@ -249,7 +254,7 @@ if __name__ == "__main__":
     wandb.config.update(hparams)
     trainer.add_callback(wandb_callback)
     
-    if hparams.run_id == None:
+    if hparams.run_id == '':
         trainer.train()
     else:
         file_path = [dI for dI in os.listdir('output/l9nsg8zw') if os.path.isdir(os.path.join('output/l9nsg8zw',dI))][-1]

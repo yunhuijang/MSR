@@ -10,6 +10,10 @@ from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
 
 def map_token_name():
+    '''
+    To map CoT tokens to their natural language names
+    '''
+    # TODO: should this be one-to-one mapping? (e.g., /, \\ are duplicated)
     token_name_dict = {}
     node_name_dict = {"C": "carbon", "F": 'fluorine', "O": "oxygen", "N": "nitrogen", "H": "hydrogen",
                       "Br": 'bromine', "Cl": 'chlorine', "S": 'sulfur', "P": 'phosphorus', "I": "iodine",
@@ -59,7 +63,10 @@ def map_token_name():
     return token_name_dict
 
 
-def map_multiset_token(smiles_list, mode='simple'):
+def map_multiset_cot(smiles_list, mode='simple'):
+    '''
+    SMILES -> Multiset CoT
+    '''
     token_name_dict = map_token_name()
     
     
@@ -86,7 +93,10 @@ def map_multiset_token(smiles_list, mode='simple'):
 
     return multiset_cot
 
-def map_ring_token(smiles_list):
+def map_ring_cot(smiles_list):
+    '''
+    SMILES -> Ring Count CoT
+    '''
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     ring_info = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
     ring_size = [Counter([len(s) for s in ri]) for ri in ring_info]
@@ -104,24 +114,24 @@ def map_ring_token(smiles_list):
         ring_cot.append(cot)
     return ring_cot
 
-def map_fragment_token(smiles_list, data_name='qm9', cot_multiset_mode=False, cot_ring_mode=False):
+def map_fragment_cot(smiles_list):
+    '''
+    SMILES -> Fragment CoT based on BRICS fragmentation
+    '''
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     # TODO: need to fix molecules that are not decomposed?
     frag_list = [BRICS.BRICSDecompose(mol) if len(BRICS.BRICSDecompose(mol))>1 else set("") for mol in tqdm(mols, "Fragmentation")]
     frag_list = [[re.sub(r'\d+', '', frag) for frag in fl] for fl in frag_list]
-    frag_list = [[BEGIN_OF_FRAG_TOKEN] + fl + [END_OF_FRAG_TOKEN] for fl in frag_list]
-    num_tokens = len(TOKENS)
-    if cot_multiset_mode != 'None':
-        num_tokens += len(COUNT_TOKENS)
-    if cot_ring_mode:
-        num_tokens += len(RING_TOKENS)
-    
-    frag_tokens = FRAG_TOKENS_DICT[data_name]
-    
-    frag_token_to_id = token_to_id(frag_tokens, num_tokens)
-    frag_sequences = [torch.LongTensor([frag_token_to_id[n] for n in fl]) for fl in frag_list]
-    
-    return frag_sequences
+    frag_cot = []
+    for fl in frag_list:
+        cot = " It includes"
+        for frag in fl:
+            cot += f" {frag},"
+        cot = cot[:-1] + '.'
+        if cot == " It include.":
+            cot = " It consists of a single fragment."
+        frag_cot.append(cot)
+    return frag_cot
 
 
 def canonicalize(smiles, is_kekulize=False):
