@@ -36,7 +36,7 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:100]
+        ][1:]
         # if self.hparams.test:
             # smiles_pair_list[:100]
         description_list = [pair[2] for pair in smiles_pair_list]
@@ -59,7 +59,6 @@ class FineTuneTranslator(pl.LightningModule):
         return dataset
     
     def setup_datasets(self, hparams):
-        # tokenized_books = books.map(preprocess_function, batched=True)
         self.train_dataset = self.load_dataset(split='train')
         self.val_dataset = self.load_dataset(split='validation')
         self.test_dataset = self.load_dataset(split='test')
@@ -69,9 +68,6 @@ class FineTuneTranslator(pl.LightningModule):
         
     
     def setup_model(self, hparams):
-        # checkpoint = "google-t5/t5-small"
-        # self.pretrained_model = AutoModelForSeq2SeqLM.from_pretrained(checkpoint)
-        # self.tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         self.tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{hparams.architecture}{hparams.task}", model_max_length=hparams.max_length)
         # TODO: tokenizer training?
         self.pretrained_model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{hparams.architecture}{hparams.task}')
@@ -98,7 +94,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_multiset", type=str, default='simple')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--wandb_mode", type=str, default='online')
+        parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=8)
         parser.add_argument("--eval_batch_size", type=int, default=8)
@@ -136,16 +132,12 @@ class WandbPredictionProgressCallback(WandbCallback):
             
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)
-        # control the frequency of logging by logging the predictions
-        # every `freq` epochs
-        
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start evaluation")
             # generate predictions
             predictions = self.trainer.predict(self.test_dataset)
             preds, labels = predictions.predictions, predictions.label_ids
             
-            # predictions = self.trainer.predict(self.test_dataset)
             if isinstance(preds, tuple):
                 preds = preds[0]
             preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
@@ -156,8 +148,6 @@ class WandbPredictionProgressCallback(WandbCallback):
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
-            # save data for evaluation
-            # if self.hparams.split == 'test':
             file_name = f'predictions/ft_cot/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
 
@@ -168,8 +158,6 @@ class WandbPredictionProgressCallback(WandbCallback):
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
                 for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
-            # self._wandb.log({"sample_predictions": records_table})
             
             if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
                 columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
@@ -197,16 +185,7 @@ class WandbPredictionProgressCallback(WandbCallback):
                     "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
                     }
             self._wandb.log(result)
-            # # decode predictions and labels
-            # decoded_preds = self.tokenizer.batch_decode(predictions, skip_special_tokens=True)
-            # # predictions = decode_predictions(self.tokenizer, predictions)
-            # # add predictions to a wandb.Table
-            # predictions_df = pd.DataFrame(predictions)
-            # predictions_df["epoch"] = state.epoch
-            # records_table = self._wandb.Table(dataframe=predictions_df)
-            # # log the table to wandb
             
-    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -226,12 +205,17 @@ if __name__ == "__main__":
     if hparams.cot_mode_fragment:
         run_name += '-frag'
     
-    wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
-               group='ft_cot')
-    
+    # for hugging face login
     HfFolder.save_token('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')
     
-    # TODO: load model from checkpoint
+
+    if hparams.run_id == None:
+        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+               group='ft_cot')
+    else:
+        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+               group='ft_cot', resume='must', id=hparams.run_id)
+    
     training_args = Seq2SeqTrainingArguments(
         output_dir=f"output/{wandb.run.id}",
         eval_strategy="epoch",
@@ -247,7 +231,6 @@ if __name__ == "__main__":
         push_to_hub=True,
         report_to='wandb',
         run_name=f'{hparams.architecture}{run_name}-ft',
-        # metric_for_best_model='Exact',
         do_train=True,
         generation_max_length=hparams.max_length
     )
@@ -262,8 +245,15 @@ if __name__ == "__main__":
     )
     
     wandb_callback = WandbPredictionProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
+    
     wandb.config.update(hparams)
     trainer.add_callback(wandb_callback)
-    trainer.train()
+    
+    if hparams.run_id == None:
+        trainer.train()
+    else:
+        file_path = [dI for dI in os.listdir('output/l9nsg8zw') if os.path.isdir(os.path.join('output/l9nsg8zw',dI))][-1]
+        trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+    
     wandb.finish()
     
