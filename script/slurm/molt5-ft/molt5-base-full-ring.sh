@@ -20,13 +20,15 @@ date
 
 nvidia-smi
 
-srun python train.py \
+srun python model/one_stage_generator.py \
 --architecture molt5-base \
 --cot_mode_multiset full \
 --cot_mode_ring \
 --wandb_mode online \
 --train_batch_size 8 \
---eval_batch_size 8
+--eval_batch_size 8 \
+--epochs 250 \
+
 
 
 

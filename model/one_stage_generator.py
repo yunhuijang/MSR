@@ -6,6 +6,7 @@ import argparse
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
+os.environ["WANDB__SERVICE_WAIT"] = "300"
 import pandas as pd
 from transformers import AutoTokenizer
 from datasets import Dataset
@@ -36,9 +37,9 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:100]
-        # if self.hparams.test:
-            # smiles_pair_list[:100]
+        ][1:]
+        if self.hparams.test:
+            smiles_pair_list = smiles_pair_list[:100]
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
         id_list = [pair[0] for pair in smiles_pair_list]
@@ -109,7 +110,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=1024)
-        parser.add_argument('--test', action='store_true')
+        parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
 
         return parser
@@ -234,7 +235,7 @@ if __name__ == "__main__":
         fp16=True,
         push_to_hub=True,
         report_to='wandb',
-        run_name=f'{hparams.architecture}{run_name}-ft',
+        run_name=f'{hparams.architecture}{run_name}-ft-reasoning',
         do_train=True,
         generation_max_length=hparams.max_length
     )

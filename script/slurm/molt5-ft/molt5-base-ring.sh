@@ -20,7 +20,7 @@ date
 
 nvidia-smi
 
-srun python train.py \
+srun python model/one_stage_generator.py \
 --architecture molt5-base \
 --cot_mode_multiset None \
 --cot_mode_ring \

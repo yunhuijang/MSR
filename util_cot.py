@@ -161,6 +161,4 @@ def map_cot_mode(cot_mode_multiset, cot_mode_ring, cot_mode_fragment):
         cot_mode += '-ring'
     if cot_mode_fragment:
         cot_mode += '-frag'
-    if cot_mode[0] == '-':
-        cot_mode = cot_mode[1:]
     return cot_mode

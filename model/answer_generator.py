@@ -8,45 +8,40 @@ import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
+from pathlib import Path
+
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
-from analysis import compute_cot_accuracy
 from util_cot import map_cot_mode
+from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 
 
-class FineTuneReasoning(FineTuneTranslator):
+class FineTuneAnswer(FineTuneTranslator):
     def __init__(self, hparams):
-        super(FineTuneReasoning, self).__init__(hparams) 
-
+        self.run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+        super(FineTuneAnswer, self).__init__(hparams)
+        
     
     def preprocess_function(self, examples):
         inputs = examples["description"]
-        # targets = examples['smiles']
+        targets = examples['smiles']
         
-        targets = ["" for _ in range(len(inputs))]
-        
-        if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
-            
-        if self.hparams.cot_mode_ring:
-            targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
-        
-        if self.hparams.cot_mode_fragment:
-            targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
-
-        targets = [target[1:] for target in targets]
+        file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+        cots = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
+        inputs = [input_ + ' ' + cot for input_, cot in zip(inputs, cots)]
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
 
 
-class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
+class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
     def __init__(self, trainer, tokenizer, test_dataset, hparams):
-        super(WandbReasoningProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
+        super(WandbAnswerProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
 
     def on_evaluate(self, args, state, control, **kwargs):
+        # super().on_evaluate(args, state, control, **kwargs)
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
-            print("Start Reasoning Evaluation")
+            print("Start Answer Evaluation")
             # generate predictions
             predictions = self.trainer.predict(self.test_dataset)
             preds, labels = predictions.predictions, predictions.label_ids
@@ -61,18 +56,21 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
-            gt_cot = decoded_labels
-            predicted_cot = decoded_preds
+            
+            gt_smiles = decoded_labels
+            predicted_smiles = decoded_preds
             
             with open(f'{file_name}', 'w') as f:
-                f.write('description' + '\t' + 'ground truth cot' + '\t' + 'output cot' + '\n')
-                for desc, rt, ot in zip(description_list, gt_cot, predicted_cot):
+                f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
+                for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
             
-            columns = ['description', 'gt_cot', 'predicted_cot']
-            result_data = [description_list, decoded_labels, decoded_preds]
+            columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
+            gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
+            predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+            result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
             
             result_data = list(map(list, zip(*result_data)))
             
@@ -81,56 +79,45 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                         columns=columns)
             self._wandb.log({f"Prediction": table})
             
-            # log accuracy
-            
-            cot_mode = map_cot_mode(self.hparams.cot_mode_multiset, self.hparams.cot_mode_ring, self.hparams.cot_mode_fragment)
-            if cot_mode[0] == '-':
-                cot_mode = cot_mode[1:]
-            ring_acc, multi_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
-            
-            wandb_log_dict = {}
-            if len(ring_acc[0]) > 0:
-                wandb_log_dict['cot/ring_acc_count'] = sum(ring_acc[0])/len(ring_acc[0])
-                wandb_log_dict['cot/ring_acc_type'] = sum(ring_acc[1])/len(ring_acc[0])
-                wandb_log_dict['cot/ring_acc'] = sum(ring_acc[2])/len(ring_acc[0])
-            
-            if len(multi_acc[0]) > 0:
-                wandb_log_dict['cot/multi_acc_count'] = sum(multi_acc[0])/len(multi_acc[0])
-                wandb_log_dict['cot/multi_acc_type'] = sum(multi_acc[1])/len(multi_acc[0])
-                wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
-            
-            self._wandb.log(wandb_log_dict)
+            # wandb logging
+            table = self._wandb.Table(data=result_data,
+                        columns=columns)
+            self._wandb.log({f"Prediction": table})
+                    
+            bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_name)
+            validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_name, 2)
+            fcd_metric_score = fcd_metric.evaluate(file_name)
+            result = {"BLEU": round(bleu_score, 3), "Exact": round(exact_match_score, 3),
+                    "Levenshtein": round(levenshtein_score, 3), "MACCS FTS": round(maccs_sims_score, 3),
+                    "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
+                    "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
+                    }
+            self._wandb.log(result)
             
 
         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    FineTuneReasoning.add_args(parser)
+    FineTuneAnswer.add_args(parser)
     hparams = parser.parse_args()
-    model = FineTuneReasoning(hparams)
+    model = FineTuneAnswer(hparams)
     if torch.cuda.is_available():
         model.to(device='cuda:0')
     else:
         model.to(device='cpu')
     print(model.device)
     run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
-    # if hparams.cot_mode_multiset in ['simple', 'full']:
-    #     run_name += f'-multiset_{hparams.cot_mode_multiset}'
-    # if hparams.cot_mode_ring:
-    #     run_name += '-ring'
-    # if hparams.cot_mode_fragment:
-    #     run_name += '-frag'
         
     # for hugging face login
     HfFolder.save_token('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')
     
     if hparams.run_id == '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
-               group='ft_cot_reasoning')
+        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-answer', mode=hparams.wandb_mode,
+               group='ft_cot_answer')
     else:
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
-               group='ft_cot_reasoning', resume='must', id=hparams.run_id)
+        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-answer', mode=hparams.wandb_mode,
+               group='ft_cot_answer', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(
         output_dir=f"output/{wandb.run.id}",
@@ -146,7 +133,7 @@ if __name__ == "__main__":
         fp16=True,
         push_to_hub=True,
         report_to='wandb',
-        run_name=f'{hparams.architecture}{run_name}-ft',
+        run_name=f'{hparams.architecture}{run_name}-ft-answer',
         do_train=True,
         generation_max_length=hparams.max_length
     )
@@ -160,7 +147,7 @@ if __name__ == "__main__":
         tokenizer=model.tokenizer,
     )
     
-    wandb_callback = WandbReasoningProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
+    wandb_callback = WandbAnswerProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     
     wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
