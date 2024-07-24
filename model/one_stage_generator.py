@@ -36,7 +36,7 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
+        ][1:][:100]
         # if self.hparams.test:
             # smiles_pair_list[:100]
         description_list = [pair[2] for pair in smiles_pair_list]
@@ -88,6 +88,8 @@ class FineTuneTranslator(pl.LightningModule):
         if self.hparams.cot_mode_ring:
             targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
         
+        if self.hparams.cot_mode_fragment:
+            targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
@@ -95,7 +97,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-small')
-        parser.add_argument("--cot_mode_multiset", type=str, default='None')
+        parser.add_argument("--cot_mode_multiset", type=str, default='full')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
@@ -108,7 +110,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=1024)
         parser.add_argument('--test', action='store_true')
-        parser.add_argument('--run_id', type=str, default='e897tv5g')
+        parser.add_argument('--run_id', type=str, default='')
 
         return parser
 
@@ -122,9 +124,6 @@ class WandbPredictionProgressCallback(WandbCallback):
     
     def postprocess_text(self, preds, labels):
         preds = [pred.strip() for pred in preds]
-        
-        
-        
         labels = [label.strip() for label in labels]
 
         return preds, labels
@@ -258,6 +257,8 @@ if __name__ == "__main__":
         trainer.train()
     else:
         file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
+        # need to check
+        trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
