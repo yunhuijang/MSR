@@ -108,7 +108,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=1024)
         parser.add_argument('--test', action='store_true')
-        parser.add_argument('--run_id', type=str, default='')
+        parser.add_argument('--run_id', type=str, default='e897tv5g')
 
         return parser
 
@@ -251,13 +251,13 @@ if __name__ == "__main__":
     
     wandb_callback = WandbPredictionProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     
-    wandb.config.update(hparams)
+    wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
     
     if hparams.run_id == '':
         trainer.train()
     else:
-        file_path = [dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))][-1]
+        file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
