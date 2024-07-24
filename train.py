@@ -257,7 +257,7 @@ if __name__ == "__main__":
     if hparams.run_id == '':
         trainer.train()
     else:
-        file_path = [dI for dI in os.listdir('output/l9nsg8zw') if os.path.isdir(os.path.join('output/l9nsg8zw',dI))][-1]
+        file_path = [dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))][-1]
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
