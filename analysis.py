@@ -126,13 +126,14 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     Compare the ground-truth CoT to predicted CoT
     '''
     
-    ring_cc, multi_cc = [], []
+    ring_cc, ring_type, ring_info = [], [], []
+    multi_cc, multi_type, multi_info = [], [], []
     
     if len(cot_mode.split('-')) > 1:
-        predicted_cot_list_ring = [pred.split('-')[0] for pred in predicted_cot_list]
-        predicted_cot_list_multiset = [pred.split('-')[1] for pred in predicted_cot_list]
-        gt_cot_list_ring = [gt.split('-')[0] for gt in gt_cot_list]
-        gt_cot_list_multiset = [gt.split('-')[1] for gt in gt_cot_list]
+        predicted_cot_list_ring = [pred.split('.')[0] for pred in predicted_cot_list]
+        predicted_cot_list_multiset = [pred.split('.')[1] for pred in predicted_cot_list]
+        gt_cot_list_ring = [gt.split('.')[0] for gt in gt_cot_list]
+        gt_cot_list_multiset = [gt.split('.')[1] for gt in gt_cot_list]
     else:
         predicted_cot_list_ring = predicted_cot_list
         predicted_cot_list_multiset = predicted_cot_list
@@ -152,7 +153,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         print("Multi analysis")
         multi_cc, multi_type, multi_info = generate_correct_list(gt_multi_info_list, pred_multi_info_list)
 
-    return ring_cc, multi_cc
+    return [ring_cc, ring_type, ring_info], [multi_cc, multi_type, multi_info]
         
         
     

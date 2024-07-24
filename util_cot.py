@@ -149,3 +149,18 @@ def canonicalize(smiles, is_kekulize=False):
         return None
 
     return smiles
+
+def map_cot_mode(cot_mode_multiset, cot_mode_ring, cot_mode_fragment):
+    '''
+    Map CoT mode to string
+    '''
+    cot_mode = ""
+    if cot_mode_multiset in ['simple', 'full']:
+        cot_mode += f'-multiset_{cot_mode_multiset}'
+    if cot_mode_ring:
+        cot_mode += '-ring'
+    if cot_mode_fragment:
+        cot_mode += '-frag'
+    if cot_mode[0] == '-':
+        cot_mode = cot_mode[1:]
+    return cot_mode
