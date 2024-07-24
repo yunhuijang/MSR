@@ -26,7 +26,9 @@ srun python train.py \
 --cot_mode_ring \
 --wandb_mode online \
 --train_batch_size 8 \
---eval_batch_size 8
+--eval_batch_size 8 \
+--epochs 250 \
+--run_id 2z8cmup1
 
 
 

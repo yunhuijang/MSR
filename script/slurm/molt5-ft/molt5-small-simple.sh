@@ -25,7 +25,9 @@ srun python train.py \
 --cot_mode_multiset simple \
 --wandb_mode online \
 --train_batch_size 8 \
---eval_batch_size 8
+--eval_batch_size 8 \
+--epochs 250 \
+--run_id kqqpbebq
 
 
 
