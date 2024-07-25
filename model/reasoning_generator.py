@@ -135,10 +135,10 @@ if __name__ == "__main__":
         save_total_limit=3,
         num_train_epochs=hparams.epochs,
         predict_with_generate=True,
-        fp16=True,
+        fp16=False,
         push_to_hub=True,
         report_to='wandb',
-        run_name=f'{hparams.architecture}{run_name}-ft',
+        run_name=f'{hparams.architecture}{run_name}-ft-reasoning',
         do_train=True,
         generation_max_length=hparams.max_length
     )

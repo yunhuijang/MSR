@@ -7,6 +7,7 @@ import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
+
 import pandas as pd
 from transformers import AutoTokenizer
 from datasets import Dataset
@@ -111,7 +112,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
-        parser.add_argument('--run_id', type=str, default='7pbd2sdv')
+        parser.add_argument('--run_id', type=str, default='')
 
         return parser
 
@@ -243,10 +244,10 @@ if __name__ == "__main__":
         save_total_limit=3,
         num_train_epochs=hparams.epochs,
         predict_with_generate=True,
-        fp16=True,
+        fp16=False,
         push_to_hub=True,
         report_to='wandb',
-        run_name=f'{hparams.architecture}{run_name}-ft-reasoning',
+        run_name=f'{hparams.architecture}{run_name}-ft',
         do_train=True,
         generation_max_length=hparams.max_length
     )
