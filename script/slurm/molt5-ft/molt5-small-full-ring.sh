@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J ft-small-full-ring
-#SBATCH -p A6000
+#SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
