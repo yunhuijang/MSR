@@ -39,7 +39,7 @@ class FineTuneTranslator(pl.LightningModule):
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
         ][1:]
         if self.hparams.test:
-            smiles_pair_list = smiles_pair_list[:100]
+            smiles_pair_list = smiles_pair_list[:20]
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
         id_list = [pair[0] for pair in smiles_pair_list]
@@ -103,15 +103,15 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=8)
-        parser.add_argument("--eval_batch_size", type=int, default=8)
+        parser.add_argument("--train_batch_size", type=int, default=1)
+        parser.add_argument("--eval_batch_size", type=int, default=1)
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
-        parser.add_argument('--max_length', type=int, default=1024)
+        parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
-        parser.add_argument('--run_id', type=str, default='')
+        parser.add_argument('--run_id', type=str, default='7pbd2sdv')
 
         return parser
 
@@ -134,7 +134,43 @@ class WandbPredictionProgressCallback(WandbCallback):
             log = state.log_history[-1]
             if 'loss' in log.keys():
                 self._wandb.log({"train/loss": log['loss']})
+    
+    def log_smiles_results(self, file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds):
+        
+        with open(f'{file_name}', 'w') as f:
+                f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
+                for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
+                    f.write(desc + '\t' + rt + '\t' + ot + '\n')
             
+        if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
+            columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
+            gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
+            predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+            # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
+            predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]
+            result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
+        else:
+            columns = ['description', 'gt_smiles', 'predicted_smiles']
+            result_data = [description_list, gt_smiles, predicted_smiles]
+        
+        
+        result_data = list(map(list, zip(*result_data)))
+        
+        # wandb logging
+        table = self._wandb.Table(data=result_data,
+                    columns=columns)
+        self._wandb.log({f"Prediction": table})
+                
+        bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_name)
+        validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_name, 2)
+        fcd_metric_score = fcd_metric.evaluate(file_name)
+        result = {"BLEU": round(bleu_score, 3), "Exact": round(exact_match_score, 3),
+                "Levenshtein": round(levenshtein_score, 3), "MACCS FTS": round(maccs_sims_score, 3),
+                "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
+                "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
+                }
+        self._wandb.log(result)
+    
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
@@ -146,6 +182,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             if isinstance(preds, tuple):
                 preds = preds[0]
             preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+            preds = preds.astype(int)
             decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
             labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
@@ -156,40 +193,14 @@ class WandbPredictionProgressCallback(WandbCallback):
             file_name = f'predictions/ft_cot/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
 
-            gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
-            predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
-            
-            with open(f'{file_name}', 'w') as f:
-                f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
-                for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
-                    f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
-            if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
-                columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
-                gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-                predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
-                result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
+            if run_name == "":
+                gt_smiles = decoded_labels
+                predicted_smiles = decoded_preds
             else:
-                columns = ['description', 'gt_smiles', 'predicted_smiles']
-                result_data = [description_list, decoded_labels, decoded_preds]
+                gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
+                predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
             
-            
-            result_data = list(map(list, zip(*result_data)))
-            
-            # wandb logging
-            table = self._wandb.Table(data=result_data,
-                        columns=columns)
-            self._wandb.log({f"Prediction": table})
-                    
-            bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_name)
-            validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_name, 2)
-            fcd_metric_score = fcd_metric.evaluate(file_name)
-            result = {"BLEU": round(bleu_score, 3), "Exact": round(exact_match_score, 3),
-                    "Levenshtein": round(levenshtein_score, 3), "MACCS FTS": round(maccs_sims_score, 3),
-                    "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
-                    "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
-                    }
-            self._wandb.log(result)
+            self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
             
 
 if __name__ == "__main__":
@@ -259,7 +270,7 @@ if __name__ == "__main__":
     else:
         file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
         # need to check
-        trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+        # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()

@@ -97,9 +97,10 @@ def map_multiset_from_cot(cot):
         else:
             t = " ".join(cot_splitted[start+1:end])[:-1]
             # type_list.append()
-        if t[-1] == 's':
-            t = t[:-1]
-        type_list.append(t)
+        if len(t) > 0:
+            if t[-1] == 's':
+                t = t[:-1]
+            type_list.append(t)
         
     for type, count in zip(type_list, count_list):
         type_count_dict[type] = count

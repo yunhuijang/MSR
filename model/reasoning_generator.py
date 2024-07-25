@@ -115,14 +115,6 @@ if __name__ == "__main__":
         model.to(device='cpu')
     print(model.device)
     run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
-    # if hparams.cot_mode_multiset in ['simple', 'full']:
-    #     run_name += f'-multiset_{hparams.cot_mode_multiset}'
-    # if hparams.cot_mode_ring:
-    #     run_name += '-ring'
-    # if hparams.cot_mode_fragment:
-    #     run_name += '-frag'
-        
-    # for hugging face login
     HfFolder.save_token('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')
     
     if hparams.run_id == '':
@@ -170,7 +162,7 @@ if __name__ == "__main__":
     else:
         file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
         # need to check
-        trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+        # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
