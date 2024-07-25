@@ -128,7 +128,7 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
 
             description_list = self.test_dataset['description']
             gt_smiles = self.test_dataset['smiles']
-            predicted_smiles = [dp[dp.index("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] for dp in decoded_preds]
+            predicted_smiles = [dp[dp.index("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
             predicted_smiles = [smi[1:] if smi[0] == " " else smi for smi in predicted_smiles]
             
             decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+1)]+ " ." for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)]
