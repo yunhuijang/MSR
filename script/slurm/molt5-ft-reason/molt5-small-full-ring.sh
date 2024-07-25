@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J reason-small-full-ring
-#SBATCH -p A6000
+#SBATCH -p A5000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
