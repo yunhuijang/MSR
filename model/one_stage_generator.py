@@ -148,7 +148,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
             predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
             # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
-            if self.tokenizer.eos_token is not None:
+            if (self.tokenizer.eos_token != None) and (self.tokenizer.bos_token != None):
                 predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]
             result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
         else:
