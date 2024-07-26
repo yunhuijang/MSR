@@ -89,8 +89,8 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=1)
-        parser.add_argument("--eval_batch_size", type=int, default=1)
+        parser.add_argument("--train_batch_size", type=int, default=2)
+        parser.add_argument("--eval_batch_size", type=int, default=32)
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=100)
         # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
@@ -116,11 +116,18 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
                 input_prompt = [f"{des} The SMILES of the molecule is: " for des in self.test_dataset['description']]
             else:
                 input_prompt = [f"{des} Then, " for des in self.test_dataset['description']]
-            inputs = self.tokenizer(input_prompt, return_tensors='pt',
-                                    padding=True).to(self.model.device)
-            output = self.model.generate(**inputs, max_length=hparams.max_length)
             
-            decoded_preds = self.tokenizer.batch_decode(output)
+            total_num_samples = 0
+            decoded_preds = []
+            while(len(decoded_preds)<len(input_prompt)):
+                cur_num_samples = min(len(input_prompt) - total_num_samples, self.hparams.eval_batch_size)
+                inputs = self.tokenizer(input_prompt[total_num_samples:total_num_samples+cur_num_samples], return_tensors='pt',
+                                        padding=True).to(self.model.device)
+                output = self.model.generate(**inputs, max_length=hparams.max_length)
+                total_num_samples += cur_num_samples
+                decoded_batch = self.tokenizer.batch_decode(output)
+                
+                decoded_preds.extend(decoded_batch)
             
             
             

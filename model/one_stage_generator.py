@@ -38,9 +38,9 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
-        if self.hparams.test:
-            smiles_pair_list = smiles_pair_list[:20]
+        ][1:][:20]
+        # if self.hparams.test:
+        #     smiles_pair_list = smiles_pair_list[:20]
         description_list = [pair[2] for pair in smiles_pair_list]
         gt_smiles_list = [pair[1] for pair in smiles_pair_list]
         id_list = [pair[0] for pair in smiles_pair_list]
