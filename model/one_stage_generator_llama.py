@@ -181,7 +181,8 @@ if __name__ == "__main__":
         report_to='wandb',
         run_name=f'{hparams.architecture}{run_name}-ft-llama',
         do_train=True,
-        optim="paged_adamw_32bit"
+        optim="paged_adamw_32bit",
+        load_best_model_at_end=True
     )
     
     trainer = SFTTrainer(

@@ -148,7 +148,8 @@ class WandbPredictionProgressCallback(WandbCallback):
             gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
             predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
             # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
-            predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]
+            if self.tokenizer.eos_token is not None:
+                predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]
             result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
         else:
             columns = ['description', 'gt_smiles', 'predicted_smiles']
@@ -249,7 +250,8 @@ if __name__ == "__main__":
         report_to='wandb',
         run_name=f'{hparams.architecture}{run_name}-ft',
         do_train=True,
-        generation_max_length=hparams.max_length
+        generation_max_length=hparams.max_length,
+        load_best_model_at_end=True
     )
 
     trainer = Seq2SeqTrainer(
