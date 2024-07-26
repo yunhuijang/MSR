@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J ft-large-simple
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
