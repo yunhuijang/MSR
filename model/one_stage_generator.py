@@ -251,7 +251,8 @@ if __name__ == "__main__":
         run_name=f'{hparams.architecture}{run_name}-ft',
         do_train=True,
         generation_max_length=hparams.max_length,
-        load_best_model_at_end=True
+        load_best_model_at_end=True,
+        save_strategy='epoch'
     )
 
     trainer = Seq2SeqTrainer(

@@ -141,6 +141,7 @@ if __name__ == "__main__":
         run_name=f'{hparams.architecture}{run_name}-ft-reasoning',
         do_train=True,
         generation_max_length=hparams.max_length,
+        save_strategy='epoch',
         load_best_model_at_end=True
     )
 
