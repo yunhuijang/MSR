@@ -32,6 +32,26 @@ class FineTuneAnswer(FineTuneTranslator):
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
+    
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument("--architecture", type=str, default='molt5-small')
+        parser.add_argument("--cot_mode_multiset", type=str, default='None')
+        parser.add_argument("--cot_mode_fragment", action='store_true')
+        parser.add_argument("--cot_mode_ring", action='store_false')
+        parser.add_argument("--wandb_mode", type=str, default='disabled')
+        parser.add_argument("--learning_rate", type=float, default=2e-5)
+        parser.add_argument("--train_batch_size", type=int, default=1)
+        parser.add_argument("--eval_batch_size", type=int, default=1)
+        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--epochs", type=int, default=100)
+        parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument('--max_length', type=int, default=512)
+        parser.add_argument('--test', action='store_false')
+        parser.add_argument('--run_id', type=str, default='')
+
+        return parser
 
 
 class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
@@ -67,10 +87,10 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                 for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
             
-            columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
-            gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-            predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
-            result_data = [description_list, gt_smiles, predicted_smiles, gt_cots, predicted_cots]
+            columns = ['description', 'gt_smiles', 'predicted_smiles']
+            # gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
+            # predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+            result_data = [description_list, gt_smiles, predicted_smiles]
             
             result_data = list(map(list, zip(*result_data)))
             
@@ -130,7 +150,7 @@ if __name__ == "__main__":
         save_total_limit=3,
         num_train_epochs=hparams.epochs,
         predict_with_generate=True,
-        fp16=True,
+        fp16=False,
         push_to_hub=True,
         report_to='wandb',
         run_name=f'{hparams.architecture}{run_name}-ft-answer',
