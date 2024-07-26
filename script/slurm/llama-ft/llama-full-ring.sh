@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J ft-llama-full-ring
-#SBATCH -p A5000
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -25,10 +25,11 @@ srun python model/one_stage_generator_llama.py \
 --cot_mode_multiset full \
 --cot_mode_ring \
 --wandb_mode online \
---train_batch_size 2 \
---eval_batch_size 2 \
---epochs 250 \
---max_length 1688
+--train_batch_size 4 \
+--eval_batch_size 4 \
+--gen_batch_size 32 \
+--epochs 3 \
+--max_length 512
 
 
 
