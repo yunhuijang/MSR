@@ -28,6 +28,7 @@ srun python model/one_stage_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
+--run_id nd06dxxo
 
 
 
