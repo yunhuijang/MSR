@@ -75,10 +75,11 @@ def map_ring_size_from_cot(cot):
     ring_size_index = [oi+2 for oi in of_index]
     ring_dict = {}
     for rsi, rni in zip(ring_size_index, ring_number_index):
-        ring_size = int(cot_splitted[rsi][:-1])
-        ring_number = int(cot_splitted[rni])
+        if cot_splitted[rsi][:-1].isdigit() and cot_splitted[rni].isdigit():
+            ring_size = int(cot_splitted[rsi][:-1])
+            ring_number = int(cot_splitted[rni])
         
-        ring_dict[ring_size] = ring_number
+            ring_dict[ring_size] = ring_number
     
     return dict(sorted(ring_dict.items()))
 
