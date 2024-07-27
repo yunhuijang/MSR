@@ -28,7 +28,8 @@ srun python model/reasoning_generator.py \
 --train_batch_size 2 \
 --eval_batch_size 2 \
 --epochs 250 \
---max_length 512
+--max_length 512 \
+--run_id mr0ekg5x
 
 
 
