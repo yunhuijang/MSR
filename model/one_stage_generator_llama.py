@@ -18,9 +18,9 @@ from util_cot import map_cot_mode
 # from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["PYTORCH_USE_CUDA_DSA"] = "1"
-os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+# os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 class FineTuneTranslatorLlama(FineTuneTranslator):
     def __init__(self, hparams):
@@ -90,13 +90,13 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=2)
-        parser.add_argument("--eval_batch_size", type=int, default=2)
+        parser.add_argument("--eval_batch_size", type=int, default=4)
         parser.add_argument("--gen_batch_size", type=int, default=32)
         parser.add_argument("--weight_decay", type=float, default=0.01)
-        parser.add_argument("--epochs", type=int, default=100)
+        parser.add_argument("--epochs", type=int, default=3)
         # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
-        parser.add_argument('--max_length', type=int, default=300)
+        parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
 
@@ -130,13 +130,14 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
                 
                 decoded_preds.extend(decoded_batch)
             
-            
+                print(f'Sampling: {total_num_samples}')
             
             file_name = f'predictions/ft_cot_llama/{self.hparams.architecture}{run_name}.txt'
 
             description_list = self.test_dataset['description']
             gt_smiles = self.test_dataset['smiles']
-            predicted_smiles = [dp[dp.index("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
+            predicted_smiles = [dp[dp.find("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
+            predicted_smiles = [smi if len(smi)>0 else " " for smi in predicted_smiles]
             predicted_smiles = [smi[1:] if smi[0] == " " else smi for smi in predicted_smiles]
             
             decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+1)]+ " ." for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)]
@@ -162,10 +163,10 @@ if __name__ == "__main__":
 
     if hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
-               group='ft_cot_llama')
+               group='ft_cot')
     else:
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
-               group='ft_cot_llama', resume='must', id=hparams.run_id)
+               group='ft_cot', resume='must', id=hparams.run_id)
     
     training_args = TrainingArguments(
         output_dir=f"output/{wandb.run.id}",
@@ -177,7 +178,7 @@ if __name__ == "__main__":
         weight_decay=hparams.weight_decay,
         save_total_limit=3,
         num_train_epochs=hparams.epochs,
-        fp16=True,
+        fp16=False,
         push_to_hub=True,
         report_to='wandb',
         run_name=f'{hparams.architecture}{run_name}-ft-llama',

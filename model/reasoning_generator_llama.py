@@ -3,20 +3,22 @@ import numpy as np
 import torch
 from huggingface_hub.hf_api import HfFolder
 import wandb
-from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
+from peft import LoraConfig, get_peft_model
+from transformers import TrainingArguments
+from trl import SFTTrainer
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 
-from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
+from model.one_stage_generator_llama import FineTuneTranslatorLlama, WandbLlamaProgressCallback
 from analysis import compute_cot_accuracy
 from util_cot import map_cot_mode
 
 
-class FineTuneReasoning(FineTuneTranslator):
+class FineTuneReasoningLlama(FineTuneTranslatorLlama):
     def __init__(self, hparams):
-        super(FineTuneReasoning, self).__init__(hparams) 
+        super(FineTuneReasoningLlama, self).__init__(hparams) 
 
     
     def preprocess_function(self, examples):
@@ -34,37 +36,81 @@ class FineTuneReasoning(FineTuneTranslator):
         if self.hparams.cot_mode_fragment:
             targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
 
-        targets = [target[1:] for target in targets]
+        targets = [" Then, " + target[1].lower() + target[2:] for target in targets]
         
-        model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
-        return model_inputs
+        examples['text'] = [input + target for input, target in zip(inputs, targets)]
+        
+        # model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
+        return examples
+
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument("--architecture", type=str, default='llama')
+        parser.add_argument("--cot_mode_multiset", type=str, default='None')
+        parser.add_argument("--cot_mode_fragment", action='store_true')
+        parser.add_argument("--cot_mode_ring", action='store_true')
+        parser.add_argument("--wandb_mode", type=str, default='disabled')
+        parser.add_argument("--learning_rate", type=float, default=2e-5)
+        parser.add_argument("--train_batch_size", type=int, default=2)
+        parser.add_argument("--eval_batch_size", type=int, default=4)
+        parser.add_argument("--gen_batch_size", type=int, default=32)
+        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--epochs", type=int, default=30)
+        # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument('--max_length', type=int, default=512)
+        parser.add_argument('--test', action='store_false')
+        parser.add_argument('--run_id', type=str, default='')
+
+        return parser
 
 
-class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
-    def __init__(self, trainer, tokenizer, test_dataset, hparams):
-        super(WandbReasoningProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
+class WandbReasoningLlamaProgressCallback(WandbLlamaProgressCallback):
+    def __init__(self, trainer, tokenizer, test_dataset, model, hparams):
+        super(WandbReasoningLlamaProgressCallback, self).__init__(trainer, tokenizer, test_dataset, model, hparams)
 
     def on_evaluate(self, args, state, control, **kwargs):
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start Reasoning Evaluation")
             # generate predictions
-            predictions = self.trainer.predict(self.test_dataset)
-            preds, labels = predictions.predictions, predictions.label_ids
             
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-            decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
-
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            input_prompt = [f"{des} Then, " for des in self.test_dataset['description']]
+            
+            
+            total_num_samples = 0
+            decoded_preds = []
+            while(len(decoded_preds)<len(input_prompt)):
+                cur_num_samples = min(len(input_prompt) - total_num_samples, self.hparams.gen_batch_size)
+                inputs = self.tokenizer(input_prompt[total_num_samples:total_num_samples+cur_num_samples], return_tensors='pt',
+                                        padding=True).to(self.model.device)
+                output = self.model.generate(**inputs, max_length=hparams.max_length)
+                total_num_samples += cur_num_samples
+                decoded_batch = self.tokenizer.batch_decode(output)
+                
+                decoded_preds.extend(decoded_batch)
+            
+                print(f'Sampling: {total_num_samples}')
+                
+            
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{run_name}.txt'
             description_list = self.test_dataset['description']
-            gt_cot = decoded_labels
-            predicted_cot = decoded_preds
+            
+            
+            targets = ["" for _ in range(len(decoded_preds))]
+            if self.hparams.cot_mode_multiset in ['simple', 'full']:
+                targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, self.test_dataset['cot_multiset'])]
+                
+            if self.hparams.cot_mode_ring:
+                targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, self.test_dataset['cot_ring'])]
+            
+            if self.hparams.cot_mode_fragment:
+                targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, self.test_dataset['cot_fragment'])]
+
+            
+            gt_cot = targets
+            targets = [target[1].lower() + target[2:] for target in targets]
+            predicted_cot = [dp[dp.find("Then, it"):].split('.')[0][len("Then, "):] if dp.find("Then, it") > -1 else " " for dp in decoded_preds]
             
             with open(f'{file_name}', 'w') as f:
                 f.write('description' + '\t' + 'ground truth cot' + '\t' + 'output cot' + '\n')
@@ -72,7 +118,7 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
             
             columns = ['description', 'gt_cot', 'predicted_cot']
-            result_data = [description_list, decoded_labels, decoded_preds]
+            result_data = [description_list, gt_cot, predicted_cot]
             
             result_data = list(map(list, zip(*result_data)))
             
@@ -106,9 +152,9 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    FineTuneReasoning.add_args(parser)
+    FineTuneReasoningLlama.add_args(parser)
     hparams = parser.parse_args()
-    model = FineTuneReasoning(hparams)
+    model = FineTuneReasoningLlama(hparams)
     if torch.cuda.is_available():
         model.to(device='cuda:0')
     else:
@@ -124,35 +170,40 @@ if __name__ == "__main__":
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
                group='ft_cot_reasoning', resume='must', id=hparams.run_id)
     
-    training_args = Seq2SeqTrainingArguments(
-        output_dir=f"output/{wandb.run.id}",
-        eval_strategy="epoch",
-        logging_steps=1,
-        learning_rate=hparams.learning_rate,
-        per_device_train_batch_size=hparams.train_batch_size,
-        per_device_eval_batch_size=hparams.eval_batch_size,
-        weight_decay=hparams.weight_decay,
-        save_total_limit=3,
-        num_train_epochs=hparams.epochs,
-        predict_with_generate=True,
-        fp16=False,
-        push_to_hub=True,
-        report_to='wandb',
-        run_name=f'{hparams.architecture}{run_name}-ft',
-        do_train=True,
-        generation_max_length=hparams.max_length
-    )
-
-    trainer = Seq2SeqTrainer(
-        model=model.pretrained_model,
-        data_collator=model.data_collator,
-        args=training_args,
-        train_dataset=model.train_dataset_tokenized,
-        eval_dataset=model.test_dataset_tokenized,
-        tokenizer=model.tokenizer,
-    )
-    
-    wandb_callback = WandbReasoningProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
+    training_args = TrainingArguments(
+            output_dir=f"output/{wandb.run.id}",
+            eval_strategy="epoch",
+            logging_steps=1,
+            learning_rate=hparams.learning_rate,
+            per_device_train_batch_size=hparams.train_batch_size,
+            per_device_eval_batch_size=hparams.eval_batch_size,
+            weight_decay=hparams.weight_decay,
+            save_total_limit=3,
+            num_train_epochs=hparams.epochs,
+            fp16=False,
+            push_to_hub=True,
+            report_to='wandb',
+            run_name=f'{hparams.architecture}{run_name}-ft-llama',
+            do_train=True,
+            optim="paged_adamw_32bit",
+            load_best_model_at_end=True,
+            save_strategy='epoch'
+        )
+        
+    trainer = SFTTrainer(
+            model=model.pretrained_model,
+            # data_collator=model.data_collator,
+            args=training_args,
+            train_dataset=model.train_dataset_tokenized,
+            eval_dataset=model.test_dataset_tokenized,
+            tokenizer=model.tokenizer,
+            peft_config=model.peft_config,
+            max_seq_length=1024,
+            dataset_text_field='text',
+            packing=False
+        )
+        
+    wandb_callback = WandbReasoningLlamaProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, model=model.pretrained_model, hparams=hparams)
     
     wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
@@ -162,7 +213,7 @@ if __name__ == "__main__":
     else:
         file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
         # need to check
-        # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+        # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
