@@ -145,8 +145,13 @@ class WandbPredictionProgressCallback(WandbCallback):
             
         if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
             columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
+            # TODO: fix for llama
+            
             gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-            predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+            if 'llama' in file_name:
+                predicted_cots = [dp[:dp.find("The SMILES of the molecule is: ")].split('.')[-2][1:]+'.' if (dp.find("Then, ") > -1) and (dp.find("The SMILES of the molecule is: ")>-1) else " " for dp in decoded_preds]
+            else:
+                predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
             # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
             if (self.tokenizer.eos_token != None) and (self.tokenizer.bos_token != None):
                 predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]

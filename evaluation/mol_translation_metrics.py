@@ -55,6 +55,8 @@ def evaluate(input_fp, verbose=False):
             if verbose:
                 print(i, 'processed.')
 
+        if gt is None:
+            continue
 
         gt_tokens = [c for c in gt]
 
