@@ -67,28 +67,34 @@ def map_multiset_cot(smiles_list, mode='simple'):
     '''
     SMILES -> Multiset CoT
     '''
-    token_name_dict = map_token_name()
     
-    
-    tokens = [tokenize(smiles)[1:-1] for smiles in smiles_list]
-    token_count = [Counter(token) for token in tokens]
-    multiset_list = [{key: value for key, value in tc.items() if key in set(NODE_TOKENS).union(BOND_TOKENS)} for tc in token_count]
-    multiset_cot = []
-    for multiset in multiset_list:
-        cot = " It includes"
-        for key, value in multiset.items():
-            if mode == 'simple':
-                if value == 1:
-                    cot += f" {value} {key},"
+    if mode == 'formula':
+        multiset_cot = [f" The molecular formula is {Chem.rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles))}." for smiles in smiles_list]
+    else:
+        multiset_cot = []
+        token_name_dict = map_token_name()
+        
+        
+        tokens = [tokenize(smiles)[1:-1] for smiles in smiles_list]
+        token_count = [Counter(token) for token in tokens]
+        multiset_list = [{key: value for key, value in tc.items() if key in set(NODE_TOKENS).union(BOND_TOKENS)} for tc in token_count]
+        
+        for multiset in multiset_list:
+            if mode in ['simple', 'full']:
+                cot = " It includes"
+            for key, value in multiset.items():
+                if mode == 'simple':
+                    if value == 1:
+                        cot += f" {value} {key},"
+                    else:
+                        cot += f" {value} {key}s,"
                 else:
-                    cot += f" {value} {key}s,"
-            else:
-                if value == 1:
-                    cot += f" {value} {token_name_dict[key]},"
-                else:
-                    cot += f" {value} {token_name_dict[key]}s,"
-                
-        cot = cot[:-1] + '.'
+                    if value == 1:
+                        cot += f" {value} {token_name_dict[key]},"
+                    else:
+                        cot += f" {value} {token_name_dict[key]}s,"
+                    
+            cot = cot[:-1] + '.'
         multiset_cot.append(cot)
 
     return multiset_cot
