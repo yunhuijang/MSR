@@ -24,8 +24,8 @@ srun python model/one_stage_generator.py \
 --architecture molt5-large \
 --cot_mode_multiset full \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16
+--train_batch_size 4 \
+--eval_batch_size 4
 
 
 
