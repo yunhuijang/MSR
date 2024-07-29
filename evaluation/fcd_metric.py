@@ -30,7 +30,7 @@ def evaluate(input_file, verbose=False):
         for n, line in enumerate(reader):
             gt_smi = line['ground truth']
             ot_smi = line['output']
-            if len(ot_smi) == 0: ot_smi = '[]'
+            if (len(ot_smi) == 0) or (ot_smi is None): ot_smi = '[]'
 
             gt_smis.append(gt_smi)
             ot_smis.append(ot_smi)
