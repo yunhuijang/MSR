@@ -95,7 +95,7 @@ def map_multiset_cot(smiles_list, mode='simple'):
                         cot += f" {value} {token_name_dict[key]}s,"
                     
             cot = cot[:-1] + '.'
-        multiset_cot.append(cot)
+            multiset_cot.append(cot)
 
     return multiset_cot
 

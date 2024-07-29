@@ -99,7 +99,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-small')
-        parser.add_argument("--cot_mode_multiset", type=str, default='formula')
+        parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
