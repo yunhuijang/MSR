@@ -26,6 +26,45 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
     def __init__(self, hparams):
         super(FineTuneTranslatorLlama, self).__init__(hparams)
 
+    def fix_untrained_tokens(self, model, eps = 1e-16):
+        """
+        Llama-3 for eg has untrained vectors in the base model.
+        These include <|eot_id|>, <|start_header_id|>, <|end_header_id|>
+        We reset them to the mean of the rest of the tokens
+        """
+        embedding_matrix = model.get_input_embeddings().weight.data
+        lm_head_matrix   = model.get_output_embeddings().weight.data
+
+        # Get untrained tokens
+        indicator_untrained = torch.amax(embedding_matrix, axis = 1) <= eps
+        where_untrained = torch.where(indicator_untrained)[0]
+        n_untrained = where_untrained.shape[0]
+        n_trained = embedding_matrix.shape[0] - n_untrained
+        if n_untrained != 0:
+            print(
+                f"Unsloth: Not an error, but your model has {n_untrained} untrained tokens.\n"\
+                "We shall set them to the mean of the other trained tokens."
+            )
+        pass
+
+        # First set untrained to all 0s - sometimes it's not! 1e-23 for bfloat16
+        embedding_matrix[where_untrained] = 0
+        lm_head_matrix  [where_untrained] = 0
+
+        # Find sum
+        sum_embedding  = torch.sum(embedding_matrix, dtype = torch.float32, axis = 0)
+        sum_lm_head    = torch.sum(lm_head_matrix,   dtype = torch.float32, axis = 0)
+
+        # Find correct average by dividing by sum of trained tokens
+        mean_embedding = (sum_embedding / n_trained).to(embedding_matrix.dtype)
+        mean_lm_head   = (sum_lm_head   / n_trained).to(lm_head_matrix  .dtype)
+
+        # Set them to the mean
+        embedding_matrix[where_untrained] = mean_embedding
+        lm_head_matrix  [where_untrained] = mean_lm_head
+
+        return mean_embedding, mean_lm_head
+    
     def setup_model(self, hparams):
         model_id = "meta-llama/Meta-Llama-3-8B-Instruct"
         
@@ -47,15 +86,44 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
             bias="none",
             task_type="CAUSAL_LM",
             )
-        pretrained_model.config.pad_token_id = pretrained_model.config.eos_token_id
+        # pretrained_model.config.pad_token_id = pretrained_model.config.unk_token_id
         
         self.pretrained_model = get_peft_model(pretrained_model, self.peft_config)
         tokenizer = AutoTokenizer.from_pretrained(model_id, model_max_length=hparams.max_length)
         if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
+            # tokenizer.pad_token = "<|reserved_special_token_0|>"
+            tokenizer.add_special_tokens({'pad_token': "<|reserved_special_token_0|>"})
+            self.pretrained_model.config.pad_token_id = tokenizer.pad_token_id            
             # tokenizer.add_special_tokens({'pad_token': '[PAD]'})
         tokenizer.padding_side = "left"
+        
+        ion_tokens = ['[14C]', '[AsH3]', '[Se+]', '[SiH4]', '[AsH]', '[Mo+4]', '[Ru]', '[Be]', '[1H+]', '[S-2]', '[nH+]',
+                      '[Ti]', '[Pr+3]', '[Ir-2]', '[131I]', '[S@]', '[SH+]', '[Co+2]', '[S+]', '[C@@H]', '[125Te]', '[C]',
+                      '[18OH2]', '[Zn]', '[S-]', '[33PH3]', '[P@@]', '[Fe]', '[1HH]', '[Ni+2]', '[Pt+2]', '[H+]', '[C@]', 
+                      '[Au+]', '[Cr]', '[18F]', '[Hg+2]', '[Se]', '[Fe+4]', '[197Hg]', '[I-]', '[Tl+]', '[3HH]', '[210Po]',
+                      '[NH2-]', '[NH4+]', '[o+]', '[N@+]', '[I+]', '[O]', '[N@@+]', '[Cr+3]', '[14CH3]', '[Cu]', '[15NH2]',
+                      '[Cl-]', '[N]', '[Pd-2]', '[77Se]', '[P+]', '[P@@H]', '[S@@+]', '[Sb-]', '[Hg]', '[Be+2]', '[Pb]', 
+                      '[s+]', '[SnH]', '[13C@@H]', '[205Tl]', '[3H]', '[Na+]', '[V]', '[Sb]', '[87Rb]', '[35SH2]', '[Os]', 
+                      '[C-]', '[SH-]', '[Rh-3]', '[Ni]', '[Sn]', '[129Xe]', '[SeH2]', '[As]', '[OH-]', '[Zr]', '[13CH]', 
+                      '[23Na]', '[Li+]', '[127IH]', '[10B]', '[115Sn]', '[Se-2]', '[18FH]', '[Mn]', '[CH]', '[Fe+3]', 
+                      '[Pd]', '[Mo+2]', '[Se-]', '[Cd]', '[51Cr]', '[F-]', '[Ir+3]', '[OH3+]', '[NH-]', '[45Sc]', 
+                      '[139La]', '[Ca+2]', '[CH+]', '[Fe+2]', '[CH3-]', '[11CH3]', '[C@@]', '[119Sn]', '[S@@]', '[Co]', 
+                      '[9Be]', '[Br-]', '[151Eu]', '[W]', '[N-]', '[95Mo]', '[Rb+]', '[Ir]', '[3He]', '[4He]', '[17OH2]', 
+                      '[Zn-2]', '[Ca]', '[nH]', '[O-]', '[13C@H]', '[Po]', '[Ru+2]', '[NH+]', '[CH2-]', '[79BrH]', '[Au]',
+                      '[Zn+2]', '[B-]', '[30Si]', '[C@H]', '[Te]', '[Ag+]', '[Eu]', '[P@]', '[PH]', '[HH]', '[73Ge]', 
+                      '[197Au]', '[Al+3]', '[Mo]', '[PH+]', '[OH+]', '[Cs+]', '[183W]', '[Sn+2]', '[CH-]', '[n+]', '[2H]',
+                      '[6Li]', '[2HH]', '[K+]', '[V+2]', '[33SH2]', '[Sb+]', '[PH4+]', '[203Hg]', '[93Nb]', '[51V]', 
+                      '[PH2]', '[H]', '[S]', '[15OH2]', '[Cu+2]', '[13NH3]', '[Yb+3]', '[Pt]', '[NH3+]', '[65Zn]', '[OH2+]',
+                      '[13C]', '[Ga]', '[O+]', '[Pt+]', '[Cd+2]', '[Gd+3]', '[As+]', '[Mn+2]', '[16OH2]', '[n-]', '[13CH2]', '[67Zn]', 
+                      '[Ce]', '[203Tl]', '[28Si]', '[SH3+]', '[31Si]', '[Ba+2]', '[121Sb]', '[C+]', '[Mg+2]', '[Y+3]', '[32Si]', '[H-]', 
+                      '[89Y]', '[N+]', '[Si]', '[63Cu]', '[32SH2]', '[Co+3]', '[13CH3]', '[Ni+3]', '[Al]', '[NH2+]',
+                      ]
+        # for i, token in enumerate(ion_tokens):
+        tokenizer.add_tokens(ion_tokens)
+        self.pretrained_model.resize_token_embeddings(len(tokenizer))
+        self.fix_untrained_tokens(self.pretrained_model)
         self.tokenizer = tokenizer
+        # self.pretrained_model.resize_token_embeddings(len(tokenizer))
     
     def preprocess_function(self, examples):
         inputs = examples["description"]
@@ -73,10 +141,10 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
             cot_list = [f"{cot}{cot_fragment}" for cot, cot_fragment in zip(cot_list, examples['cot_fragment'])]
         
         if cot_list[0] == "":
-            inputs = [f"{text} The SMILES of the molecule is: {smiles}." for text, smiles in zip(inputs, targets)]
+            inputs = [f"{text} The SMILES of the molecule is: {smiles}. {self.tokenizer.eos_token}" for text, smiles in zip(inputs, targets)]
         else:
             cot_list =  [cot[1].lower() + cot[2:] for cot in cot_list]
-            inputs = [f"{text} Then, {cot} The SMILES of the molecule is: {smiles}." for text, cot, smiles in zip(inputs, cot_list, targets)]
+            inputs = [f"{text} Then, {cot} The SMILES of the molecule is: {smiles}. {self.tokenizer.eos_token}" for text, cot, smiles in zip(inputs, cot_list, targets)]
         examples['text'] = inputs
         
         return examples
@@ -93,9 +161,9 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--eval_batch_size", type=int, default=4)
         parser.add_argument("--gen_batch_size", type=int, default=32)
         parser.add_argument("--weight_decay", type=float, default=0.01)
-        parser.add_argument("--epochs", type=int, default=3)
+        parser.add_argument("--epochs", type=int, default=10)
         # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=10)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
@@ -185,7 +253,9 @@ if __name__ == "__main__":
         do_train=True,
         optim="paged_adamw_32bit",
         load_best_model_at_end=True,
-        save_strategy='epoch'
+        save_strategy='epoch',
+        # warmup_ratio=0.1,
+        # warmup_steps=1000
     )
     
     trainer = SFTTrainer(
