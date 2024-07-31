@@ -102,8 +102,10 @@ def evaluate(input_fp, verbose=False):
             bad_mols += 1
 
         
-
-        levs.append(lev(out, gt))
+        try:
+            levs.append(lev(out, gt))
+        except:
+            continue
 
 
     # Exact matching score

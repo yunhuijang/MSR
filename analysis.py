@@ -84,6 +84,13 @@ def map_ring_size_from_cot(cot):
     
     return dict(sorted(ring_dict.items()))
 
+def map_arom_num_from_cot(cot):
+    if cot == 'It does not include any aromatic ring.':
+        return 0
+    else:
+        return int(cot[2])
+        
+
 def map_multiset_from_cot(cot):
     
     cot_splitted = cot.split(' ')
@@ -131,8 +138,10 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     
     ring_cc, ring_type, ring_info = [], [], []
     multi_cc, multi_type, multi_info = [], [], []
+    arom_info = []
     
     if len(cot_mode.split('-')) > 1:
+        # TODO: fix pred when pred is not CoT
         predicted_cot_list_ring = [pred.split('.')[0] for pred in predicted_cot_list]
         predicted_cot_list_multiset = [pred.split('.')[1] for pred in predicted_cot_list]
         gt_cot_list_ring = [gt.split('.')[0] for gt in gt_cot_list]
@@ -140,15 +149,18 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     else:
         predicted_cot_list_ring = predicted_cot_list
         predicted_cot_list_multiset = predicted_cot_list
+        predicted_cot_list_arom = predicted_cot_list
         gt_cot_list_ring = gt_cot_list
         gt_cot_list_multiset = gt_cot_list
+        gt_cot_list_arom = gt_cot_list
+        
 
     if 'ring' in cot_mode:
         gt_ring_info_list = [map_ring_size_from_cot(gt) for gt in gt_cot_list_ring]
         pred_ring_info_list = [map_ring_size_from_cot(pred) for pred in predicted_cot_list_ring]
         print("Ring analysis")
         ring_cc, ring_type, ring_info = generate_correct_list(gt_ring_info_list, pred_ring_info_list)
-        
+    
     if ('simple' in cot_mode) or ('full' in cot_mode):
         
         gt_multi_info_list = [map_multiset_from_cot(gt) for gt in gt_cot_list_multiset]
@@ -156,7 +168,14 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         print("Multi analysis")
         multi_cc, multi_type, multi_info = generate_correct_list(gt_multi_info_list, pred_multi_info_list)
 
-    return [ring_cc, ring_type, ring_info], [multi_cc, multi_type, multi_info]
+    if 'arom' in cot_mode:
+        gt_arom_info_list = [map_arom_num_from_cot(gt) for gt in gt_cot_list_arom]
+        pred_arom_info_list = [map_arom_num_from_cot(pred) for pred in predicted_cot_list_arom]
+        print("Aromaticity analysis")
+        arom_info = [gt == pred for gt, pred in zip(gt_arom_info_list, pred_arom_info_list)]
+    
+    
+    return [ring_cc, ring_type, ring_info], [multi_cc, multi_type, multi_info], [arom_info]
         
         
     

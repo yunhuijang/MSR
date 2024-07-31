@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
-from util_cot import map_cot_mode
+from util_cot import map_cot_mode, add_cot_to_target
 # from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot
 
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -120,6 +120,10 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
                       ]
         # for i, token in enumerate(ion_tokens):
         tokenizer.add_tokens(ion_tokens)
+        
+        if hparams.tag:
+            tokenizer.add_special_tokens({'additional_special_tokens': ['<SMILES>', '</SMILES>']})
+        
         self.pretrained_model.resize_token_embeddings(len(tokenizer))
         self.fix_untrained_tokens(self.pretrained_model)
         self.tokenizer = tokenizer
@@ -128,17 +132,12 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
+        if self.hparams.tag:
+            targets = [f"<SMILES> {smiles} </SMILES>" for smiles in targets]
         
         cot_list = ["" for _ in range(len(targets))]
-
-        if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            cot_list = [f"{cot}{cot_multiset}" for cot, cot_multiset in zip(cot_list, examples['cot_multiset'])]
-            
-        if self.hparams.cot_mode_ring:
-            cot_list = [f"{cot}{cot_ring}" for cot, cot_ring in zip(cot_list, examples['cot_ring'])]
-        
-        if self.hparams.cot_mode_fragment:
-            cot_list = [f"{cot}{cot_fragment}" for cot, cot_fragment in zip(cot_list, examples['cot_fragment'])]
+        cot_mode = map_cot_mode(self.hparams)
+        cot_list = add_cot_to_target(examples, cot_list, cot_mode)
         
         if cot_list[0] == "":
             inputs = [f"{text} The SMILES of the molecule is: {smiles}. {self.tokenizer.eos_token}" for text, smiles in zip(inputs, targets)]
@@ -167,6 +166,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
+        parser.add_argument('--tag', action='store_false')
 
         return parser
 
@@ -180,9 +180,11 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
             print("Start Llama Evaluation")
             # generate predictions
             
-            run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+            run_name = map_cot_mode(self.hparams)
             if run_name == "":
                 input_prompt = [f"{des} The SMILES of the molecule is: " for des in self.test_dataset['description']]
+                if self.hparams.tag:
+                    input_prompt = [f"{des} <SMILES> " for des in input_prompt]
             else:
                 input_prompt = [f"{des} Then, " for des in self.test_dataset['description']]
             
@@ -204,9 +206,13 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
 
             description_list = self.test_dataset['description']
             gt_smiles = self.test_dataset['smiles']
-            predicted_smiles = [dp[dp.find("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
+            if hparams.tag:
+                predicted_smiles = [dp[dp.find("<SMILES> "):].split(' ')[0][len("<SMILES> "):] if (dp.find("<SMILES>") > -1) else " " for dp in decoded_preds]
+            else:
+                predicted_smiles = [dp[dp.find("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
+            predicted_smiles = [smi[:smi.find('</SMILES>')] if smi.find('</SMILES>') > -1 else smi for smi in predicted_smiles]
             predicted_smiles = [smi if len(smi)>0 else " " for smi in predicted_smiles]
-            predicted_smiles = [smi[1:] if smi[0] == " " else smi for smi in predicted_smiles]
+            predicted_smiles = [smi.replace(" ", "") for smi in predicted_smiles]
             
             decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+1)]+ " ." for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)]
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
@@ -223,7 +229,7 @@ if __name__ == "__main__":
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+    run_name = map_cot_mode(hparams)
 
     # for hugging face login
     HfFolder.save_token('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')

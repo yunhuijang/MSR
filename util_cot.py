@@ -5,6 +5,11 @@ from collections import Counter
 from tqdm import tqdm
 import re
 from torch.nn.utils.rnn import pad_sequence
+import os
+from pathlib import Path
+from rdkit.Chem.rdMolDescriptors import CalcNumAromaticRings
+
+
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
 
@@ -67,6 +72,9 @@ def map_multiset_cot(smiles_list, mode='simple'):
     '''
     SMILES -> Multiset CoT
     '''
+    if mode not in ['simple', 'formula', 'full']:
+        raise ValueError("Mode should be one of 'simple', 'formula', 'full'")
+    
     
     if mode == 'formula':
         multiset_cot = [f" The molecular formula is {Chem.rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles))}." for smiles in smiles_list]
@@ -80,8 +88,7 @@ def map_multiset_cot(smiles_list, mode='simple'):
         multiset_list = [{key: value for key, value in tc.items() if key in set(NODE_TOKENS).union(BOND_TOKENS)} for tc in token_count]
         
         for multiset in multiset_list:
-            if mode in ['simple', 'full']:
-                cot = " It includes"
+            cot = " It includes"
             for key, value in multiset.items():
                 if mode == 'simple':
                     if value == 1:
@@ -117,17 +124,42 @@ def map_ring_cot(smiles_list):
         cot = cot[:-1] + '.'
         if cot == " It include.":
             cot = " It does not include any rings."
+
+        
         ring_cot.append(cot)
     return ring_cot
 
-def map_fragment_cot(smiles_list):
+def map_aromatic_ring_cot(smiles_list):
+    arom_cot = []
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    aromatic_ring_num = [CalcNumAromaticRings(mol) if mol is not None else [] for mol in mols]
+    for arom_num in aromatic_ring_num:
+        cot = " It includes"
+        if arom_num == 0:
+            cot = " It does not include any aromatic ring."
+        elif arom_num == 1:
+            cot += f" {arom_num} aromatic ring."
+        else:
+            cot += f" {arom_num} aromatic rings."
+
+        arom_cot.append(cot)
+    
+    return arom_cot
+
+
+
+def map_fragment_cot(split):
     '''
     SMILES -> Fragment CoT based on BRICS fragmentation
     '''
-    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    # mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     # TODO: need to fix molecules that are not decomposed?
-    frag_list = [BRICS.BRICSDecompose(mol) if len(BRICS.BRICSDecompose(mol))>1 else set("") for mol in tqdm(mols, "Fragmentation")]
-    frag_list = [[re.sub(r'\d+', '', frag) for frag in fl] for fl in frag_list]
+    # frag_list = [BRICS.BRICSDecompose(mol) if len(BRICS.BRICSDecompose(mol))>1 else set("") for mol in tqdm(mols, "Fragmentation")]
+    
+    # frag_list = [[re.sub(r'\d+', '', frag) for frag in fl] for fl in frag_list]
+    smiles_path = os.path.join('ChEBI-20_data', f'{split}_fragment.txt')
+    frag_list = [frag.split() for frag in Path(smiles_path).read_text(encoding="utf-8").splitlines()]
+
     frag_cot = []
     for fl in frag_list:
         cot = " It includes"
@@ -156,15 +188,40 @@ def canonicalize(smiles, is_kekulize=False):
 
     return smiles
 
-def map_cot_mode(cot_mode_multiset, cot_mode_ring, cot_mode_fragment):
+def map_cot_mode(hparams):
     '''
     Map CoT mode to string
     '''
+    
+    cot_mode_multiset = hparams.cot_mode_multiset
+    cot_mode_ring = hparams.cot_mode_ring
+    cot_mode_fragment = hparams.cot_mode_fragment
+    cot_mode_aromaticity = hparams.cot_mode_aromatic
+    
     cot_mode = ""
-    if cot_mode_multiset in ['simple', 'full']:
+    if cot_mode_multiset in ['simple', 'full', 'formula']:
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_ring:
         cot_mode += '-ring'
     if cot_mode_fragment:
         cot_mode += '-frag'
+    if cot_mode_aromaticity:
+        cot_mode += '-arom'
+        
     return cot_mode
+
+def add_cot_to_target(examples, targets, cot_mode):
+    # CoT order: fragment, ring, multiset, aromatic
+    if 'arom' in cot_mode:
+        targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
+    
+    if 'multiset' in cot_mode:
+        targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
+        
+    if 'ring' in cot_mode:
+        targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
+    
+    if 'frag' in cot_mode:
+        targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
+        
+    return targets

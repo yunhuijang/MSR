@@ -9,26 +9,82 @@ os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
+from datasets import Dataset
 
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot
 
 
 class FineTuneAnswer(FineTuneTranslator):
     def __init__(self, hparams):
-        self.run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+        self.run_name = map_cot_mode(hparams)
         super(FineTuneAnswer, self).__init__(hparams)
+    
+    def load_dataset(self, split):
+    
+        smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+        smiles_pair_list = [
+        [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+        ][1:]
+        # if self.hparams.test:
+        #     smiles_pair_list = smiles_pair_list[:20]
+        description_list = [pair[2] for pair in smiles_pair_list]
+        gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+        id_list = [pair[0] for pair in smiles_pair_list]
         
+        data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+        if split in ['train', 'validation']:
+            if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
+                multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
+                data_dict['cot_multiset'] = multiset_cot_list
+            
+            if self.hparams.cot_mode_ring:
+                ring_cot_list = map_ring_cot(gt_smiles_list)
+                data_dict['cot_ring'] = ring_cot_list
+                
+            if self.hparams.cot_mode_fragment:
+                fragment_cot_list = map_fragment_cot(split)
+                data_dict['cot_fragment'] = fragment_cot_list
+                
+            if self.hparams.cot_mode_aromatic:
+                aromatic_cot_list = map_aromatic_ring_cot(gt_smiles_list)
+                data_dict['cot_aromatic'] = aromatic_cot_list
+        else:
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+            cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
+            cot_list = [" "+cot for cot in cot_list]
+            # TODO: multiple CoT
+            if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
+                data_dict['cot_multiset'] = cot_list
+            
+            if self.hparams.cot_mode_ring:
+                data_dict['cot_ring'] = cot_list
+                
+            if self.hparams.cot_mode_fragment:
+                data_dict['cot_fragment'] = cot_list
+                
+            if self.hparams.cot_mode_aromatic:
+                data_dict['cot_aromatic'] = cot_list
+            
+        dataset = Dataset.from_dict(data_dict)
+        
+        
+        return dataset
+    
     
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
+        cot_keys = [x for x in self.train_dataset.features.keys() if 'cot' in x]
+        # TODO: multiple CoT
+        cots = examples[cot_keys[0]]
         
-        file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
-        cots = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
-        inputs = [input_ + ' ' + cot for input_, cot in zip(inputs, cots)]
+        # file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+        # cots = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
+        inputs = [input_ + cot for input_, cot in zip(inputs, cots)]
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
@@ -38,7 +94,8 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument("--architecture", type=str, default='molt5-small')
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
-        parser.add_argument("--cot_mode_ring", action='store_true')
+        parser.add_argument("--cot_mode_ring", action='store_false')
+        parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)
@@ -127,7 +184,7 @@ if __name__ == "__main__":
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+    run_name = map_cot_mode(hparams)
         
     # for hugging face login
     HfFolder.save_token('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')

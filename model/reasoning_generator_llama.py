@@ -13,7 +13,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 from model.one_stage_generator_llama import FineTuneTranslatorLlama, WandbLlamaProgressCallback
 from analysis import compute_cot_accuracy
-from util_cot import map_cot_mode
+from util_cot import map_cot_mode, add_cot_to_target
 
 
 class FineTuneReasoningLlama(FineTuneTranslatorLlama):
@@ -26,15 +26,8 @@ class FineTuneReasoningLlama(FineTuneTranslatorLlama):
         # targets = examples['smiles']
         
         targets = ["" for _ in range(len(inputs))]
-        
-        if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
-            
-        if self.hparams.cot_mode_ring:
-            targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
-        
-        if self.hparams.cot_mode_fragment:
-            targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
+        cot_mode = map_cot_mode(self.hparams)
+        targets = add_cot_to_target(examples, targets, cot_mode)
 
         targets = [" Then, " + target[1].lower() + target[2:] for target in targets]
         
@@ -98,15 +91,8 @@ class WandbReasoningLlamaProgressCallback(WandbLlamaProgressCallback):
             
             
             targets = ["" for _ in range(len(decoded_preds))]
-            if self.hparams.cot_mode_multiset in ['simple', 'full']:
-                targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, self.test_dataset['cot_multiset'])]
-                
-            if self.hparams.cot_mode_ring:
-                targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, self.test_dataset['cot_ring'])]
-            
-            if self.hparams.cot_mode_fragment:
-                targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, self.test_dataset['cot_fragment'])]
-
+            cot_mode = map_cot_mode(self.hparams)
+            targets = add_cot_to_target(self.test_dataset, targets, cot_mode)
             
             gt_cot = targets
             targets = [target[1].lower() + target[2:] for target in targets]
@@ -129,7 +115,7 @@ class WandbReasoningLlamaProgressCallback(WandbLlamaProgressCallback):
             
             # log accuracy
             
-            cot_mode = map_cot_mode(self.hparams.cot_mode_multiset, self.hparams.cot_mode_ring, self.hparams.cot_mode_fragment)
+            cot_mode = map_cot_mode(self.hparams)
             if cot_mode[0] == '-':
                 cot_mode = cot_mode[1:]
             ring_acc, multi_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
@@ -160,7 +146,7 @@ if __name__ == "__main__":
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+    run_name = map_cot_mode(hparams)
     HfFolder.save_token('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')
     
     if hparams.run_id == '':

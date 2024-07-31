@@ -11,7 +11,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from analysis import compute_cot_accuracy
-from util_cot import map_cot_mode
+from util_cot import map_cot_mode, add_cot_to_target
 
 
 class FineTuneReasoning(FineTuneTranslator):
@@ -25,21 +25,36 @@ class FineTuneReasoning(FineTuneTranslator):
         
         targets = ["" for _ in range(len(inputs))]
         
-        if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
-            
-        if self.hparams.cot_mode_ring:
-            targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
-        
-        if self.hparams.cot_mode_fragment:
-            targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
+        cot_mode = map_cot_mode(self.hparams)
+        targets = add_cot_to_target(examples, targets, cot_mode)
 
         targets = [target[1:] for target in targets]
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
 
+    @staticmethod
+    def add_args(parser):
+        parser.add_argument("--architecture", type=str, default='molt5-small')
+        parser.add_argument("--cot_mode_multiset", type=str, default='formula')
+        parser.add_argument("--cot_mode_fragment", action='store_true')
+        parser.add_argument("--cot_mode_ring", action='store_false')
+        parser.add_argument("--cot_mode_aromatic", action='store_false')
+        parser.add_argument("--wandb_mode", type=str, default='disabled')
+        parser.add_argument("--learning_rate", type=float, default=2e-5)
+        parser.add_argument("--train_batch_size", type=int, default=1)
+        parser.add_argument("--eval_batch_size", type=int, default=1)
+        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--epochs", type=int, default=100)
+        parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument('--max_length', type=int, default=512)
+        parser.add_argument('--test', action='store_false')
+        parser.add_argument('--run_id', type=str, default='')
 
+        return parser
+    
+    
 class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
     def __init__(self, trainer, tokenizer, test_dataset, hparams):
         super(WandbReasoningProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
@@ -83,10 +98,10 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
             
             # log accuracy
             
-            cot_mode = map_cot_mode(self.hparams.cot_mode_multiset, self.hparams.cot_mode_ring, self.hparams.cot_mode_fragment)
+            cot_mode = map_cot_mode(self.hparams)
             if cot_mode[0] == '-':
                 cot_mode = cot_mode[1:]
-            ring_acc, multi_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
+            ring_acc, multi_acc, arom_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
             
             wandb_log_dict = {}
             if len(ring_acc[0]) > 0:
@@ -98,6 +113,9 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                 wandb_log_dict['cot/multi_acc_count'] = sum(multi_acc[0])/len(multi_acc[0])
                 wandb_log_dict['cot/multi_acc_type'] = sum(multi_acc[1])/len(multi_acc[0])
                 wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
+            
+            if len(arom_acc) > 0:
+                wandb_log_dict['cot/arom_acc'] = sum(arom_acc)/len(arom_acc)
             
             self._wandb.log(wandb_log_dict)
             
@@ -114,7 +132,7 @@ if __name__ == "__main__":
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+    run_name = map_cot_mode(hparams)
     HfFolder.save_token('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')
     
     if hparams.run_id == '':

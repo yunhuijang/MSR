@@ -22,14 +22,14 @@ import torch
 
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot
 
 class FineTuneTranslator(pl.LightningModule):
     def __init__(self, hparams):
         super(FineTuneTranslator, self).__init__()
         hparams = argparse.Namespace(**hparams) if isinstance(hparams, dict) else hparams
-        self.setup_model(hparams)
         self.save_hyperparameters(hparams)
+        self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
     
@@ -56,8 +56,12 @@ class FineTuneTranslator(pl.LightningModule):
             data_dict['cot_ring'] = ring_cot_list
             
         if self.hparams.cot_mode_fragment:
-            fragment_cot_list = map_fragment_cot(gt_smiles_list)
+            fragment_cot_list = map_fragment_cot(split)
             data_dict['cot_fragment'] = fragment_cot_list
+            
+        if self.hparams.cot_mode_aromatic:
+            aromatic_cot_list = map_aromatic_ring_cot(gt_smiles_list)
+            data_dict['cot_aromatic'] = aromatic_cot_list
             
         dataset = Dataset.from_dict(data_dict)
         
@@ -82,17 +86,11 @@ class FineTuneTranslator(pl.LightningModule):
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
-        if self.hparams.cot_mode_multiset in ['simple', 'full'] or self.hparams.cot_mode_ring:
+        cot_mode = map_cot_mode(self.hparams)
+        if cot_mode != "":
             targets = [f" {target}" for target in targets]
-        if self.hparams.cot_mode_multiset in ['simple', 'full']:
-            targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
-            
-        if self.hparams.cot_mode_ring:
-            targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
-        
-        if self.hparams.cot_mode_fragment:
-            targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
-        
+        targets = add_cot_to_target(targets, examples, cot_mode)
+     
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
     
@@ -102,6 +100,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
+        parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)
@@ -142,8 +141,10 @@ class WandbPredictionProgressCallback(WandbCallback):
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
                 for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
-        if (self.hparams.cot_mode_multiset in ['simple', 'full']) or (self.hparams.cot_mode_ring):
+        
+        cot_mode = map_cot_mode(hparams)
+        
+        if cot_mode != "":
             columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
             # TODO: fix for llama
             
@@ -220,13 +221,7 @@ if __name__ == "__main__":
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = ""
-    if hparams.cot_mode_multiset in ['simple', 'full']:
-        run_name += f'-multiset_{hparams.cot_mode_multiset}'
-    if hparams.cot_mode_ring:
-        run_name += '-ring'
-    if hparams.cot_mode_fragment:
-        run_name += '-frag'
+    run_name = map_cot_mode(hparams)
     
     # for hugging face login
     HfFolder.save_token('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')

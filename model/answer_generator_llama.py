@@ -11,22 +11,22 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
 
 
-from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
+from model.one_stage_generator_llama import FineTuneTranslatorLlama, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 
 
-class FineTuneAnswer(FineTuneTranslator):
+class FineTuneAnswerLlama(FineTuneTranslatorLlama):
     def __init__(self, hparams):
-        self.run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
-        super(FineTuneAnswer, self).__init__(hparams)
+        self.run_name = map_cot_mode(hparams)
+        super(FineTuneAnswerLlama, self).__init__(hparams)
         
     
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
         
-        file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+        file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.run_name}.txt'
         cots = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
         inputs = [input_ + ' ' + cot for input_, cot in zip(inputs, cots)]
         
@@ -99,15 +99,15 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    FineTuneAnswer.add_args(parser)
+    FineTuneAnswerLlama.add_args(parser)
     hparams = parser.parse_args()
-    model = FineTuneAnswer(hparams)
+    model = FineTuneAnswerLlama(hparams)
     if torch.cuda.is_available():
         model.to(device='cuda:0')
     else:
         model.to(device='cpu')
     print(model.device)
-    run_name = map_cot_mode(hparams.cot_mode_multiset, hparams.cot_mode_ring, hparams.cot_mode_fragment)
+    run_name = map_cot_mode(hparams)
         
     # for hugging face login
     HfFolder.save_token('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')
