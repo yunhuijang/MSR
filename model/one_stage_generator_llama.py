@@ -154,6 +154,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
+        parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=2)
@@ -167,6 +168,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
         parser.add_argument('--tag', action='store_false')
+        parser.add_argument('--pretrain_model_id', type=str, default='')
 
         return parser
 
@@ -235,7 +237,7 @@ if __name__ == "__main__":
     HfFolder.save_token('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')
     
 
-    if hparams.run_id == '':
+    if hparams.run_id == '' or hparams.pretrain_model_id != '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
@@ -282,13 +284,17 @@ if __name__ == "__main__":
     wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
     
-    if hparams.run_id == '':
+    if hparams.run_id == '' and hparams.pretrain_model_id == '':
         trainer.train()
     else:
-        file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
-        # need to check
-        # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
-        trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+        if hparams.pretrain_model_id != '':
+            file_path = sorted([dI for dI in os.listdir(f'output/{hparams.pretrain_model_id}') if os.path.isdir(os.path.join(f'output/{hparams.pretrain_model_id}',dI))])[-1]
+            trainer.train(resume_from_checkpoint=f"output/{hparams.pretrain_model_id}/{file_path}")
+        else:
+            file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
+            # need to check
+            # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+            trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
     
