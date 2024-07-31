@@ -236,7 +236,7 @@ if __name__ == "__main__":
     else:
         file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
         # need to check
-        trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+        # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
