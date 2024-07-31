@@ -11,6 +11,7 @@ from collections import Counter
 import numpy as np
 import re
 from itertools import compress
+import logging
 
 from util_cot import canonicalize, map_ring_cot, map_multiset_cot, map_token_name
 from tokens import tokenize, NODE_TOKENS, BOND_TOKENS
@@ -88,7 +89,11 @@ def map_arom_num_from_cot(cot):
     if cot == 'It does not include any aromatic ring.':
         return 0
     else:
-        return int(cot[2])
+        try:
+            return int(cot.split(' ')[2])
+        except:
+            logging.warning(f"Error in mapping aromatic ring number from CoT: {cot}")
+            return 100
         
 
 def map_multiset_from_cot(cot):

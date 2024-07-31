@@ -115,7 +115,7 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                 wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
             
             if len(arom_acc) > 0:
-                wandb_log_dict['cot/arom_acc'] = sum(arom_acc)/len(arom_acc)
+                wandb_log_dict['cot/arom_acc'] = sum(arom_acc[0])/len(arom_acc)
             
             self._wandb.log(wandb_log_dict)
             
