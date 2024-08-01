@@ -142,7 +142,7 @@ class WandbPredictionProgressCallback(WandbCallback):
                 for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
         
-        cot_mode = map_cot_mode(hparams)
+        cot_mode = map_cot_mode(self.hparams)
         
         if cot_mode != "":
             columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
