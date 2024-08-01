@@ -2,7 +2,7 @@ import transformers
 import torch
 from huggingface_hub.hf_api import HfFolder
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, BitsAndBytesConfig
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, get_peft_model, PeftModel
 from trl import SFTTrainer
 import argparse
 import wandb
@@ -74,11 +74,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
             bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16,
             bnb_4bit_use_double_quant=True,
-)
-        
-        pretrained_model = AutoModelForCausalLM.from_pretrained(model_id, 
-                                                                quantization_config=bnb_config,
-                                                                device_map='auto')
+)       
         self.peft_config = LoraConfig(
             lora_alpha=16,
             lora_dropout=0.1,
@@ -86,18 +82,28 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
             bias="none",
             task_type="CAUSAL_LM",
             )
-        # pretrained_model.config.pad_token_id = pretrained_model.config.unk_token_id
-        
-        self.pretrained_model = get_peft_model(pretrained_model, self.peft_config)
-        tokenizer = AutoTokenizer.from_pretrained(model_id, model_max_length=hparams.max_length)
-        if tokenizer.pad_token is None:
-            # tokenizer.pad_token = "<|reserved_special_token_0|>"
-            tokenizer.add_special_tokens({'pad_token': "<|reserved_special_token_0|>"})
-            self.pretrained_model.config.pad_token_id = tokenizer.pad_token_id            
-            # tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-        tokenizer.padding_side = "left"
-        
-        ion_tokens = ['[14C]', '[AsH3]', '[Se+]', '[SiH4]', '[AsH]', '[Mo+4]', '[Ru]', '[Be]', '[1H+]', '[S-2]', '[nH+]',
+
+        pretrained_model = AutoModelForCausalLM.from_pretrained(model_id, 
+                                                                quantization_config=bnb_config,
+                                                                device_map='auto')
+        # from SMILES pretrained Llama
+        if hparams.pretrain_model_id != '':
+            file_path = sorted([dI for dI in os.listdir(f'output/{hparams.pretrain_model_id}') if os.path.isdir(os.path.join(f'output/{hparams.pretrain_model_id}',dI))])[-1]
+            peft_model_id = f'output/{hparams.pretrain_model_id}/{file_path}'
+            tokenizer = AutoTokenizer.from_pretrained(peft_model_id, model_max_length=hparams.max_length)
+            tokenizer.padding_side = "left"
+            pretrained_model.resize_token_embeddings(len(tokenizer))
+            # pretrained_model.enable_input_require_grads()
+            self.pretrained_model = PeftModel.from_pretrained(pretrained_model, model_id=peft_model_id, is_trainable=True)
+        # from vanilla Llama
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(model_id, model_max_length=hparams.max_length)
+            self.pretrained_model = get_peft_model(pretrained_model, self.peft_config)
+            if tokenizer.pad_token is None:
+                tokenizer.add_special_tokens({'pad_token': "<|reserved_special_token_0|>"})
+                self.pretrained_model.config.pad_token_id = tokenizer.pad_token_id            
+                tokenizer.padding_side = "left"
+            ion_tokens = ['[14C]', '[AsH3]', '[Se+]', '[SiH4]', '[AsH]', '[Mo+4]', '[Ru]', '[Be]', '[1H+]', '[S-2]', '[nH+]',
                       '[Ti]', '[Pr+3]', '[Ir-2]', '[131I]', '[S@]', '[SH+]', '[Co+2]', '[S+]', '[C@@H]', '[125Te]', '[C]',
                       '[18OH2]', '[Zn]', '[S-]', '[33PH3]', '[P@@]', '[Fe]', '[1HH]', '[Ni+2]', '[Pt+2]', '[H+]', '[C@]', 
                       '[Au+]', '[Cr]', '[18F]', '[Hg+2]', '[Se]', '[Fe+4]', '[197Hg]', '[I-]', '[Tl+]', '[3HH]', '[210Po]',
@@ -118,16 +124,14 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
                       '[Ce]', '[203Tl]', '[28Si]', '[SH3+]', '[31Si]', '[Ba+2]', '[121Sb]', '[C+]', '[Mg+2]', '[Y+3]', '[32Si]', '[H-]', 
                       '[89Y]', '[N+]', '[Si]', '[63Cu]', '[32SH2]', '[Co+3]', '[13CH3]', '[Ni+3]', '[Al]', '[NH2+]',
                       ]
-        # for i, token in enumerate(ion_tokens):
-        tokenizer.add_tokens(ion_tokens)
-        
+            tokenizer.add_tokens(ion_tokens)
+            self.pretrained_model.resize_token_embeddings(len(tokenizer))
+
         if hparams.tag:
             tokenizer.add_special_tokens({'additional_special_tokens': ['<SMILES>', '</SMILES>']})
-        
-        self.pretrained_model.resize_token_embeddings(len(tokenizer))
         self.fix_untrained_tokens(self.pretrained_model)
         self.tokenizer = tokenizer
-        # self.pretrained_model.resize_token_embeddings(len(tokenizer))
+
     
     def preprocess_function(self, examples):
         inputs = examples["description"]
@@ -168,11 +172,12 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
         parser.add_argument('--tag', action='store_true')
-        parser.add_argument('--pretrain_model_id', type=str, default='')
+        parser.add_argument('--pretrain_model_id', type=str, default='1azi0wgu')
 
         return parser
 
 class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
+    
     def __init__(self, trainer, tokenizer, test_dataset, model, hparams):
         super(WandbLlamaProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
         self.model = model
@@ -237,9 +242,15 @@ if __name__ == "__main__":
     HfFolder.save_token('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')
     
 
-    if hparams.run_id == '' or hparams.pretrain_model_id != '':
+    if hparams.pretrain_model_id != '':
+        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-preft-llama', mode=hparams.wandb_mode,
+               group='ft_cot')
+
+    elif hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
                group='ft_cot')
+        
+        
     else:
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
@@ -284,17 +295,13 @@ if __name__ == "__main__":
     wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
     
-    if hparams.run_id == '' and hparams.pretrain_model_id == '':
+    if hparams.run_id == '':
         trainer.train()
     else:
-        if hparams.pretrain_model_id != '':
-            file_path = sorted([dI for dI in os.listdir(f'output/{hparams.pretrain_model_id}') if os.path.isdir(os.path.join(f'output/{hparams.pretrain_model_id}',dI))])[-1]
-            trainer.train(resume_from_checkpoint=f"output/{hparams.pretrain_model_id}/{file_path}")
-        else:
-            file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
-            # need to check
-            # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
-            trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
-    
+        file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
+        # need to check
+        # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
+        trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+
     wandb.finish()
     
