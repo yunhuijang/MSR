@@ -167,7 +167,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=10)
         # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=10)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
@@ -241,15 +241,13 @@ if __name__ == "__main__":
     # for hugging face login
     HfFolder.save_token('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')
     
-
+    wandb_name = f'{hparams.architecture}{run_name}-ft-llama'
     if hparams.pretrain_model_id != '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-preft-llama', mode=hparams.wandb_mode,
-               group='ft_cot')
-
-    elif hparams.run_id == '':
+        wandb_name += '-pre'
+    
+    if hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
                group='ft_cot')
-        
         
     else:
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
