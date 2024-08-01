@@ -23,14 +23,14 @@ nvidia-smi
 srun python model/one_stage_generator_llama.py \
 --architecture llama \
 --cot_mode_multiset formula \
---cot_mode_ring \
 --wandb_mode online \
 --train_batch_size 4 \
 --eval_batch_size 4 \
 --gen_batch_size 32 \
 --epochs 20 \
 --max_length 512 \
---pretrain_model_id 1azi0wgu
+--pretrain_model_id 1azi0wgu \
+--check_val_every_n_epoch 1
 
 
 

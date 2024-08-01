@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ftpre-llama-ring
+#SBATCH -J ftpre-llama-ringform
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -22,7 +22,7 @@ nvidia-smi
 
 srun python model/one_stage_generator_llama.py \
 --architecture llama \
---cot_mode_multiset None \
+--cot_mode_multiset formula \
 --cot_mode_ring \
 --wandb_mode online \
 --train_batch_size 4 \
@@ -32,7 +32,7 @@ srun python model/one_stage_generator_llama.py \
 --max_length 512 \
 --pretrain_model_id 1azi0wgu \
 --check_val_every_n_epoch 1 \
---run_id s2non9qa
+--run_id riegf51n
 
 
 
