@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-large-full
+#SBATCH -J ft-large-chain
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -22,7 +22,8 @@ nvidia-smi
 
 srun python model/one_stage_generator.py \
 --architecture molt5-large \
---cot_mode_multiset full \
+--cot_mode_multiset None \
+--cot_mode_chain
 --wandb_mode online \
 --train_batch_size 4 \
 --eval_batch_size 4 \

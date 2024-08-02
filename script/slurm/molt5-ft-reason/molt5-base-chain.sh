@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J ft-large-full
-#SBATCH -p A100-80GB
+#SBATCH -J reason-base-chain
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -20,14 +20,15 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator.py \
---architecture molt5-large \
---cot_mode_multiset full \
+srun python model/reasoning_generator.py \
+--architecture molt5-base \
+--cot_mode_multiset None \
+--cot_mode_chain \
 --wandb_mode online \
---train_batch_size 4 \
---eval_batch_size 4 \
---run_id es3eqqwi \
---epochs 250
+--train_batch_size 8 \
+--eval_batch_size 8 \
+--epochs 250 \
+--max_length 512
 
 
 

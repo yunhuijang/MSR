@@ -13,7 +13,7 @@ import re
 from itertools import compress
 import logging
 
-from util_cot import canonicalize, map_ring_cot, map_multiset_cot, map_token_name
+from util_cot import canonicalize, map_ring_cot, map_multiset_cot, map_token_name, map_carbon_chain_length
 from tokens import tokenize, NODE_TOKENS, BOND_TOKENS
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -86,15 +86,24 @@ def map_ring_size_from_cot(cot):
     return dict(sorted(ring_dict.items()))
 
 def map_arom_num_from_cot(cot):
-    if cot == 'It does not include any aromatic ring.':
+    if cot == ' It does not include any aromatic ring.':
         return 0
     else:
         try:
-            return int(cot.split(' ')[2])
+            if cot[0] == ' ':
+                return int(cot.split(' ')[3])
+            else:
+                return int(cot.split(' ')[2])
         except:
             logging.warning(f"Error in mapping aromatic ring number from CoT: {cot}")
             return 100
-        
+    
+def map_chain_from_cot(cot):
+    try:
+        return int(cot.split(' ')[-1][:-1])
+    except:
+        logging.warning(f"Error in mapping chain length from CoT: {cot}")
+        return 100
 
 def map_multiset_from_cot(cot):
     
@@ -121,66 +130,58 @@ def map_multiset_from_cot(cot):
     
     return dict(sorted(type_count_dict.items()))
 
-def generate_correct_list(gt_info_list, pred_info_list):
-    
+def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
+    # whole information of rings
+    info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
+    print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
+    if is_only_count:
+        return info_correct_list
     # total number of rings
     count_correct_list = [len(gt) == len(pred) for gt, pred in zip(gt_info_list, pred_info_list)]
     # type of ring sizes
     type_correct_list = [set(gt.keys()) == set(pred.keys()) for gt, pred in zip(gt_info_list, pred_info_list)]
-    # whole information of rings
-    info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
+
     
-    print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
     print(f"Type Accuracy: {sum(type_correct_list)/len(gt_info_list)}")
     print(f"Count Accuracy: {sum(count_correct_list)/len(gt_info_list)}")
     
     return count_correct_list, type_correct_list, info_correct_list
+
 
 def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     '''
     Compare the ground-truth CoT to predicted CoT
     '''
     
-    ring_cc, ring_type, ring_info = [], [], []
-    multi_cc, multi_type, multi_info = [], [], []
-    arom_info = []
+    # ring_cc, ring_type, ring_info = [], [], []
+    # multi_cc, multi_type, multi_info = [], [], []
+    # arom_info = []
+    result = []
     
-    if len(cot_mode.split('-')) > 1:
-        # TODO: fix pred when pred is not CoT
-        predicted_cot_list_ring = [pred.split('.')[0] for pred in predicted_cot_list]
-        predicted_cot_list_multiset = [pred.split('.')[1] for pred in predicted_cot_list]
-        gt_cot_list_ring = [gt.split('.')[0] for gt in gt_cot_list]
-        gt_cot_list_multiset = [gt.split('.')[1] for gt in gt_cot_list]
-    else:
-        predicted_cot_list_ring = predicted_cot_list
-        predicted_cot_list_multiset = predicted_cot_list
-        predicted_cot_list_arom = predicted_cot_list
-        gt_cot_list_ring = gt_cot_list
-        gt_cot_list_multiset = gt_cot_list
-        gt_cot_list_arom = gt_cot_list
+    cot_modes = cot_mode.split('-')
+    for i, mode in enumerate(cot_modes):
+        is_only_count = False
+        print(f'Analysis for {mode}')
+        cur_predicted_cot_list = [pred.split('.')[i] if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
+        cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
+        if mode == 'ring':
+            gt_info_list = [map_ring_size_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_ring_size_from_cot(pred) for pred in cur_predicted_cot_list]
+        elif ('simple' in mode) or ('full' in mode):
+            gt_info_list = [map_multiset_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_multiset_from_cot(pred) for pred in cur_predicted_cot_list]
+        elif mode == 'arom':
+            gt_info_list = [map_arom_num_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_arom_num_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
+        elif mode == 'chain':
+            gt_info_list = [map_chain_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_chain_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
         
-
-    if 'ring' in cot_mode:
-        gt_ring_info_list = [map_ring_size_from_cot(gt) for gt in gt_cot_list_ring]
-        pred_ring_info_list = [map_ring_size_from_cot(pred) for pred in predicted_cot_list_ring]
-        print("Ring analysis")
-        ring_cc, ring_type, ring_info = generate_correct_list(gt_ring_info_list, pred_ring_info_list)
-    
-    if ('simple' in cot_mode) or ('full' in cot_mode):
-        
-        gt_multi_info_list = [map_multiset_from_cot(gt) for gt in gt_cot_list_multiset]
-        pred_multi_info_list = [map_multiset_from_cot(pred) for pred in predicted_cot_list_multiset]
-        print("Multi analysis")
-        multi_cc, multi_type, multi_info = generate_correct_list(gt_multi_info_list, pred_multi_info_list)
-
-    if 'arom' in cot_mode:
-        gt_arom_info_list = [map_arom_num_from_cot(gt) for gt in gt_cot_list_arom]
-        pred_arom_info_list = [map_arom_num_from_cot(pred) for pred in predicted_cot_list_arom]
-        print("Aromaticity analysis")
-        arom_info = [gt == pred for gt, pred in zip(gt_arom_info_list, pred_arom_info_list)]
-    
-    
-    return [ring_cc, ring_type, ring_info], [multi_cc, multi_type, multi_info], [arom_info]
+        acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count)
+        result.append(acc_list)
+    return result
         
         
     

@@ -22,7 +22,8 @@ import torch
 
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length
+from analysis import compute_cot_accuracy
 
 class FineTuneTranslator(pl.LightningModule):
     def __init__(self, hparams):
@@ -38,7 +39,7 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
+        ][1:][:100]
         # if self.hparams.test:
         #     smiles_pair_list = smiles_pair_list[:20]
         description_list = [pair[2] for pair in smiles_pair_list]
@@ -46,7 +47,7 @@ class FineTuneTranslator(pl.LightningModule):
         id_list = [pair[0] for pair in smiles_pair_list]
         
         data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
-        
+        cot_list = ["" for _ in range(len(gt_smiles_list))]
         if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
             multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
             data_dict['cot_multiset'] = multiset_cot_list
@@ -62,6 +63,10 @@ class FineTuneTranslator(pl.LightningModule):
         if self.hparams.cot_mode_aromatic:
             aromatic_cot_list = map_aromatic_ring_cot(gt_smiles_list)
             data_dict['cot_aromatic'] = aromatic_cot_list
+            
+        if self.hparams.cot_mode_chain:
+            carbon_chain_cot_list = map_carbon_chain_length(gt_smiles_list)
+            data_dict['cot_chain'] = carbon_chain_cot_list
             
         dataset = Dataset.from_dict(data_dict)
         
@@ -89,7 +94,7 @@ class FineTuneTranslator(pl.LightningModule):
         cot_mode = map_cot_mode(self.hparams)
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
-        targets = add_cot_to_target(targets, examples, cot_mode)
+        targets = add_cot_to_target(examples, targets, cot_mode)
      
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
@@ -101,6 +106,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')
+        parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)
@@ -161,6 +167,23 @@ class WandbPredictionProgressCallback(WandbCallback):
             columns = ['description', 'gt_smiles', 'predicted_smiles']
             result_data = [description_list, gt_smiles, predicted_smiles]
         
+        if len(columns) > 3:
+            cot_mode = map_cot_mode(self.hparams)
+            if cot_mode[0] == '-':
+                cot_mode = cot_mode[1:]
+            # ring_acc, multi_acc, arom_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
+            cot_acc = compute_cot_accuracy(gt_cots, predicted_cots, cot_mode=cot_mode)
+            wandb_log_dict = {}
+            cot_modes = cot_mode.split('-')
+            for mode, acc in zip(cot_modes, cot_acc):
+                if type(acc) == list:
+                    wandb_log_dict[f'cot/{mode}_acc'] = sum(acc)/len(acc)
+                else:
+                    # tuple (tuple of 3 lists)
+                    wandb_log_dict[f'cot/{mode}_acc_count'] = sum(acc[0])/len(acc[0])
+                    wandb_log_dict[f'cot/{mode}_acc_type'] = sum(acc[1])/len(acc[0])
+                    wandb_log_dict[f'cot/{mode}_acc'] = sum(acc[2])/len(acc[0])
+            
         
         result_data = list(map(list, zip(*result_data)))
         

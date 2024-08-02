@@ -8,6 +8,7 @@ from torch.nn.utils.rnn import pad_sequence
 import os
 from pathlib import Path
 from rdkit.Chem.rdMolDescriptors import CalcNumAromaticRings
+from rdkit.Chem import MCS
 
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
@@ -146,7 +147,15 @@ def map_aromatic_ring_cot(smiles_list):
     
     return arom_cot
 
-
+def map_carbon_chain_length(smiles_list):
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    carbon_mol = Chem.MolFromSmiles('C'*100)
+    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts for mol in mols]
+    carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
+    cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
+    
+    return cot_list
+    
 
 def map_fragment_cot(split):
     '''
@@ -197,21 +206,24 @@ def map_cot_mode(hparams):
     cot_mode_ring = hparams.cot_mode_ring
     cot_mode_fragment = hparams.cot_mode_fragment
     cot_mode_aromaticity = hparams.cot_mode_aromatic
-    
+    cot_mode_chain = hparams.cot_mode_chain
+    # CoT order: fragment, ring, multiset, aromatic, carbon chain
     cot_mode = ""
-    if cot_mode_multiset in ['simple', 'full', 'formula']:
-        cot_mode += f'-multiset_{cot_mode_multiset}'
-    if cot_mode_ring:
-        cot_mode += '-ring'
     if cot_mode_fragment:
         cot_mode += '-frag'
+    if cot_mode_ring:
+        cot_mode += '-ring'
+    if cot_mode_multiset in ['simple', 'full', 'formula']:
+        cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
+    if cot_mode_chain:
+        cot_mode += '-chain'
         
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: fragment, ring, multiset, aromatic
+    # CoT order: fragment, ring, multiset, aromatic, carbon chain
     if 'arom' in cot_mode:
         targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
     
@@ -223,5 +235,9 @@ def add_cot_to_target(examples, targets, cot_mode):
     
     if 'frag' in cot_mode:
         targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
-        
+    
+    if 'chain' in cot_mode:
+        targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_chain'])]
+
+    
     return targets

@@ -101,21 +101,31 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
             cot_mode = map_cot_mode(self.hparams)
             if cot_mode[0] == '-':
                 cot_mode = cot_mode[1:]
-            ring_acc, multi_acc, arom_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
-            
+            # ring_acc, multi_acc, arom_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
+            cot_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
             wandb_log_dict = {}
-            if len(ring_acc[0]) > 0:
-                wandb_log_dict['cot/ring_acc_count'] = sum(ring_acc[0])/len(ring_acc[0])
-                wandb_log_dict['cot/ring_acc_type'] = sum(ring_acc[1])/len(ring_acc[0])
-                wandb_log_dict['cot/ring_acc'] = sum(ring_acc[2])/len(ring_acc[0])
+            cot_modes = cot_mode.split('-')
+            for mode, acc in zip(cot_modes, cot_acc):
+                if type(acc) == list:
+                    wandb_log_dict[f'cot/{mode}_acc'] = sum(acc)/len(acc)
+                else:
+                    # tuple (tuple of 3 lists)
+                    wandb_log_dict[f'cot/{mode}_acc_count'] = sum(acc[0])/len(acc[0])
+                    wandb_log_dict[f'cot/{mode}_acc_type'] = sum(acc[1])/len(acc[0])
+                    wandb_log_dict[f'cot/{mode}_acc'] = sum(acc[2])/len(acc[0])
             
-            if len(multi_acc[0]) > 0:
-                wandb_log_dict['cot/multi_acc_count'] = sum(multi_acc[0])/len(multi_acc[0])
-                wandb_log_dict['cot/multi_acc_type'] = sum(multi_acc[1])/len(multi_acc[0])
-                wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
+            # if len(ring_acc[0]) > 0:
+            #     wandb_log_dict['cot/ring_acc_count'] = sum(ring_acc[0])/len(ring_acc[0])
+            #     wandb_log_dict['cot/ring_acc_type'] = sum(ring_acc[1])/len(ring_acc[0])
+            #     wandb_log_dict['cot/ring_acc'] = sum(ring_acc[2])/len(ring_acc[0])
             
-            if len(arom_acc) > 0:
-                wandb_log_dict['cot/arom_acc'] = sum(arom_acc[0])/len(arom_acc)
+            # if len(multi_acc[0]) > 0:
+            #     wandb_log_dict['cot/multi_acc_count'] = sum(multi_acc[0])/len(multi_acc[0])
+            #     wandb_log_dict['cot/multi_acc_type'] = sum(multi_acc[1])/len(multi_acc[0])
+            #     wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
+            
+            # if len(arom_acc) > 0:
+            #     wandb_log_dict['cot/arom_acc'] = sum(arom_acc[0])/len(arom_acc[0])
             
             self._wandb.log(wandb_log_dict)
             
