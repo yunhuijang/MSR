@@ -159,6 +159,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')
+        parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=2)
@@ -221,7 +222,7 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
             predicted_smiles = [smi if len(smi)>0 else " " for smi in predicted_smiles]
             predicted_smiles = [smi.replace(" ", "") for smi in predicted_smiles]
             
-            decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+1)]+ " ." for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)]
+            decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+len(self.tokenizer.eos_token))-3]for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)][0]
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
             
 
@@ -246,11 +247,11 @@ if __name__ == "__main__":
         wandb_name += '-pre'
     
     if hparams.run_id == '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=wandb_name, mode=hparams.wandb_mode,
                group='ft_cot')
         
     else:
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-llama', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=wandb_name, mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
     
     training_args = TrainingArguments(
