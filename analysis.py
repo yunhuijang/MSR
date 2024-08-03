@@ -162,7 +162,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     for i, mode in enumerate(cot_modes):
         is_only_count = False
         print(f'Analysis for {mode}')
-        cur_predicted_cot_list = [pred.split('.')[i] if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
+        cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
         cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
         if mode == 'ring':
             gt_info_list = [map_ring_size_from_cot(gt) for gt in cur_gt_cot_list]
