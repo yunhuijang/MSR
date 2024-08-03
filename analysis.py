@@ -130,6 +130,15 @@ def map_multiset_from_cot(cot):
     
     return dict(sorted(type_count_dict.items()))
 
+def map_form_from_cot(cot):
+    form = cot.split(' ')[-1][:-1]
+    multiset = [s for s in re.findall(r'[a-zA-Z]+', form)]
+    count = [int(s) for s in re.findall(r'[\d]+', form)]
+    type_count_dict = {}
+    for type, count in zip(multiset, count):
+        type_count_dict[type] = count
+    return dict(sorted(type_count_dict.items()))
+
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
     # whole information of rings
     info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
@@ -170,6 +179,9 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         elif ('simple' in mode) or ('full' in mode):
             gt_info_list = [map_multiset_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_multiset_from_cot(pred) for pred in cur_predicted_cot_list]
+        elif 'form' in mode:
+            gt_info_list = [map_form_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_form_from_cot(pred) for pred in cur_predicted_cot_list]
         elif mode == 'arom':
             gt_info_list = [map_arom_num_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_arom_num_from_cot(pred) for pred in cur_predicted_cot_list]
