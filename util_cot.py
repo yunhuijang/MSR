@@ -209,6 +209,8 @@ def map_cot_mode(hparams):
     cot_mode_chain = hparams.cot_mode_chain
     # CoT order: fragment, ring, multiset, aromatic, carbon chain
     cot_mode = ""
+    if cot_mode_chain:
+        cot_mode += '-chain'
     if cot_mode_fragment:
         cot_mode += '-frag'
     if cot_mode_ring:
@@ -217,13 +219,12 @@ def map_cot_mode(hparams):
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
-    if cot_mode_chain:
-        cot_mode += '-chain'
+
         
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: fragment, ring, multiset, aromatic, carbon chain
+    # CoT order: chain, fragment, ring, multiset, aromatic
     if 'arom' in cot_mode:
         targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
     
