@@ -161,10 +161,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     '''
     Compare the ground-truth CoT to predicted CoT
     '''
-    
-    # ring_cc, ring_type, ring_info = [], [], []
-    # multi_cc, multi_type, multi_info = [], [], []
-    # arom_info = []
+
     result = []
     
     cot_modes = cot_mode.split('-')

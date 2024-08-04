@@ -207,7 +207,7 @@ def map_cot_mode(hparams):
     cot_mode_fragment = hparams.cot_mode_fragment
     cot_mode_aromaticity = hparams.cot_mode_aromatic
     cot_mode_chain = hparams.cot_mode_chain
-    # CoT order: fragment, ring, multiset, aromatic, carbon chain
+    # CoT order: chain, fragment, ring, multiset, aromatic
     cot_mode = ""
     if cot_mode_chain:
         cot_mode += '-chain'

@@ -39,7 +39,7 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:100]
+        ][1:]
         # if self.hparams.test:
         #     smiles_pair_list = smiles_pair_list[:20]
         description_list = [pair[2] for pair in smiles_pair_list]
@@ -209,7 +209,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             # generate predictions
             predictions = self.trainer.predict(self.test_dataset)
             preds, labels = predictions.predictions, predictions.label_ids
-            
+            run_name = map_cot_mode(self.hparams)
             if isinstance(preds, tuple):
                 preds = preds[0]
             preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
