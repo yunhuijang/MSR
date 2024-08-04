@@ -27,10 +27,10 @@ srun python model/one_stage_generator_llama.py \
 --train_batch_size 4 \
 --eval_batch_size 4 \
 --gen_batch_size 32 \
---epochs 20 \
+--epochs 100 \
 --max_length 512 \
 --pretrain_model_id 1azi0wgu \
 --check_val_every_n_epoch 1 \
---run_id cx59vec3
+--run_id 4l06qgjj
 
 
