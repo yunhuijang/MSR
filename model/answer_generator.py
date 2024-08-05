@@ -15,7 +15,7 @@ from datasets import Dataset
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot
 
 
 class FineTuneAnswer(FineTuneTranslator):
@@ -57,7 +57,15 @@ class FineTuneAnswer(FineTuneTranslator):
             if self.hparams.cot_mode_chain:
                 chain_cot_list = map_carbon_chain_length(gt_smiles_list)
                 data_dict['cot_chain'] = chain_cot_list
-                
+            
+            if self.hparams.cot_mode_ring_name:
+                ring_name_cot_list = map_ring_name_cot(gt_smiles_list, mode='name')
+                data_dict['cot_ring_name'] = ring_name_cot_list
+            
+            if self.hparams.cot_mode_iupac:
+                iupac_cot_list = map_iupac_cot(gt_smiles_list, mode='iupac')
+                data_dict['cot_iupac'] = iupac_cot_list
+            
             cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
             data_dict['cot'] = cot_list
             print('hi')
@@ -67,18 +75,7 @@ class FineTuneAnswer(FineTuneTranslator):
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             data_dict['cot'] = cot_list
-            # # TODO: multiple CoT
-            # if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
-            #     data_dict['cot_multiset'] = cot_list
-            
-            # if self.hparams.cot_mode_ring:
-            #     data_dict['cot_ring'] = cot_list
-                
-            # if self.hparams.cot_mode_fragment:
-            #     data_dict['cot_fragment'] = cot_list
-                
-            # if self.hparams.cot_mode_aromatic:
-            #     data_dict['cot_aromatic'] = cot_list
+
             
         dataset = Dataset.from_dict(data_dict)
         
@@ -108,6 +105,8 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--cot_mode_chain", action='store_true')
+        parser.add_argument("--cot_mode_ring_name", action='store_true')
+        parser.add_argument("--cot_mode_iupac", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)

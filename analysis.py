@@ -139,6 +139,43 @@ def map_form_from_cot(cot):
         type_count_dict[type] = count
     return dict(sorted(type_count_dict.items()))
 
+def map_iupac_from_cot(cot):
+    return cot[len(" The IUPAC form is "):-1]
+
+def map_ring_size_from_cot(cot):
+    
+    cot_splitted = cot.split(' ')
+    
+    of_index = [index for index, word in enumerate(cot_splitted) if word == 'of']
+    ring_number_index = [oi-2 for oi in of_index]
+    ring_size_index = [oi+2 for oi in of_index]
+    ring_dict = {}
+    for rsi, rni in zip(ring_size_index, ring_number_index):
+        if (len(cot_splitted) > rsi) and (len(cot_splitted) > rni):
+            if cot_splitted[rsi][:-1].isdigit() and cot_splitted[rni].isdigit():
+                ring_size = int(cot_splitted[rsi][:-1])
+                ring_number = int(cot_splitted[rni])
+            
+                ring_dict[ring_size] = ring_number
+    
+    return dict(sorted(ring_dict.items()))
+
+def map_ring_name_from_cot(cot):
+    cot_splitted = cot.split(' ')
+    ring_index = [index for index, word in enumerate(cot_splitted) if 'ring' in word]
+    ring_number_index = [oi-2 for oi in ring_index]
+    ring_name_index = [oi-1 for oi in ring_index]
+    ring_dict = {}
+    for rnum, rname in zip(ring_number_index, ring_name_index):
+        if (len(cot_splitted) > rnum) and (len(cot_splitted) > rname):
+            if cot_splitted[rnum].isdigit():
+                ring_number = int(cot_splitted[rnum])
+                ring_name = cot_splitted[rname]
+                
+                ring_dict[ring_name] = ring_number
+    return dict(sorted(ring_dict.items()))
+    
+
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
     # whole information of rings
     info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
@@ -187,7 +224,14 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
             gt_info_list = [map_chain_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_chain_from_cot(pred) for pred in cur_predicted_cot_list]
             is_only_count = True
-        
+        elif mode == 'iupac':
+            gt_info_list = [map_iupac_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_iupac_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
+        elif mode == 'rname':
+            gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
+            
         acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count)
         result.append(acc_list)
     return result

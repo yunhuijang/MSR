@@ -22,7 +22,7 @@ import torch
 
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot
 from analysis import compute_cot_accuracy
 
 class FineTuneTranslator(pl.LightningModule):
@@ -68,6 +68,14 @@ class FineTuneTranslator(pl.LightningModule):
             carbon_chain_cot_list = map_carbon_chain_length(gt_smiles_list)
             data_dict['cot_chain'] = carbon_chain_cot_list
             
+        if self.hparams.cot_mode_ring_name:
+            ring_name_cot_list = map_ring_name_cot(gt_smiles_list)
+            data_dict['cot_ring_name'] = ring_name_cot_list
+            
+        if self.hparams.cot_mode_iupac:
+            iupac_cot_list = map_iupac_cot(gt_smiles_list)
+            data_dict['cot_iupac'] = iupac_cot_list
+            
         dataset = Dataset.from_dict(data_dict)
         
         
@@ -107,6 +115,8 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--cot_mode_chain", action='store_true')
+        parser.add_argument("--cot_mode_ring_name", action='store_true')
+        parser.add_argument("--cot_mode_iupac", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)

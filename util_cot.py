@@ -9,7 +9,9 @@ import os
 from pathlib import Path
 from rdkit.Chem.rdMolDescriptors import CalcNumAromaticRings
 from rdkit.Chem import MCS
-
+import logging
+import pubchempy
+import json
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
@@ -155,7 +157,60 @@ def map_carbon_chain_length(smiles_list):
     cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
     
     return cot_list
+
+def map_symbol(mol, index, i, ring_size):
+    atom = mol.GetAtoms()[index]
+    is_aromatic = atom.GetIsAromatic()
+    if is_aromatic:
+        symbol =  atom.GetSymbol().lower()
+    else:
+        symbol = atom.GetSymbol()
+    if i == 0 or i == ring_size-1:
+        symbol = symbol + '1'
+    return symbol
+
+def smiles_to_iupac(smiles):
+    try:
+        compounds = pubchempy.get_compounds(smiles, namespace='smiles')
+    except:
+        logging.warning(f"Error in mapping SMILES: {smiles}")
+        return ""
+    m = compounds[0]
+    return m.iupac_name
+
+def map_ring_name_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    ring_info = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
+
+    ring_info_multiset = [["".join([map_symbol(mol, index, i, len(ring)) for i, index in enumerate(ring)]) for ring in ri] for mol, ri in zip(mols, tqdm(ring_info, 'Map Ring Names'))]
+    # ring_info_multiset = [[ri[0] + '1' + ri[1:] + '1' for ri in ring_info] for ring_info in ring_info_multiset]
+    with open('resource/data/ring_to_iupac.json', 'r') as fp:
+        ring_name_dict = json.load(fp)
+    ring_info_multiset_iupac = [[ring_name_dict.get(ri, "") for ri in ring_info] for ring_info in ring_info_multiset]
+    ring_info_count = [Counter(ring_info) for ring_info in ring_info_multiset_iupac]
+    ring_cot = []
+    for srs in ring_info_count:
+        cot = " It includes"
+        for key, value in srs.items():
+            if value == 1:
+                cot += f" {value} {key} ring,"
+            else:
+                cot += f" {value} {key} rings,"
+        cot = cot[:-1] + '.'
+        if cot == " It include.":
+            cot = " It does not include any rings."
+
+        
+        ring_cot.append(cot)
+        
+    return ring_cot
+
+def map_iupac_cot(smiles_list):
+    iupac_list = [smiles_to_iupac(smi) for smi in tqdm(smiles_list)]
     
+    cot_list = [f" The IUPAC form is {iupac}." if len(iupac)>0 else " The IUPAC form is not available." for iupac in iupac_list]
+    
+    return cot_list
 
 def map_fragment_cot(split):
     '''
@@ -207,7 +262,9 @@ def map_cot_mode(hparams):
     cot_mode_fragment = hparams.cot_mode_fragment
     cot_mode_aromaticity = hparams.cot_mode_aromatic
     cot_mode_chain = hparams.cot_mode_chain
-    # CoT order: chain, fragment, ring, multiset, aromatic
+    cot_mode_ring_name = hparams.cot_mode_ring_name
+    cot_mode_iupac = hparams.cot_mode_iupac
+    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, iupac
     cot_mode = ""
     if cot_mode_chain:
         cot_mode += '-chain'
@@ -219,12 +276,22 @@ def map_cot_mode(hparams):
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
-
+    if cot_mode_ring_name:
+        cot_mode += '-rname'
+    if cot_mode_iupac:
+        cot_mode += '-iupac'
         
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: chain, fragment, ring, multiset, aromatic
+    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, iupac
+    
+    if 'iupac' in cot_mode:
+        targets = [f"{cot_iupac}{target}" for target, cot_iupac in zip(targets, examples['cot_iupac'])]
+    
+    if 'rname' in cot_mode:
+        targets = [f"{cot_ring_name}{target}" for target, cot_ring_name in zip(targets, examples['cot_ring_name'])]
+    
     if 'arom' in cot_mode:
         targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
     
