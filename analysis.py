@@ -139,6 +139,15 @@ def map_form_from_cot(cot):
         type_count_dict[type] = count
     return dict(sorted(type_count_dict.items()))
 
+def map_type_from_cot(cot):
+    try:
+        types = cot[len(" It includes "):-1]
+        type_set = [t for t in types.split(',') if len(t)>0]
+        return set([t if t[0]!= ' ' else t[1:] for t in type_set])
+    except:
+        return set()
+
+
 def map_iupac_from_cot(cot):
     return cot[len(" The IUPAC form is "):-1]
 
@@ -216,6 +225,10 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         elif 'form' in mode:
             gt_info_list = [map_form_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_form_from_cot(pred) for pred in cur_predicted_cot_list]
+        elif 'only_type' in mode:
+            gt_info_list = [map_type_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_type_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
         elif mode == 'arom':
             gt_info_list = [map_arom_num_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_arom_num_from_cot(pred) for pred in cur_predicted_cot_list]

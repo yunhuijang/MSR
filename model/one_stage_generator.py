@@ -47,8 +47,8 @@ class FineTuneTranslator(pl.LightningModule):
         id_list = [pair[0] for pair in smiles_pair_list]
         
         data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
-        cot_list = ["" for _ in range(len(gt_smiles_list))]
-        if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
+        # cot_list = ["" for _ in range(len(gt_smiles_list))]
+        if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
             multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
             data_dict['cot_multiset'] = multiset_cot_list
         
@@ -110,7 +110,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-small')
-        parser.add_argument("--cot_mode_multiset", type=str, default='None')
+        parser.add_argument("--cot_mode_multiset", type=str, default='only_type')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')

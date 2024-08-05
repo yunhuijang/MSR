@@ -75,39 +75,45 @@ def map_multiset_cot(smiles_list, mode='simple'):
     '''
     SMILES -> Multiset CoT
     '''
-    if mode not in ['simple', 'formula', 'full']:
+    if mode not in ['simple', 'formula', 'full', 'only_type']:
         raise ValueError("Mode should be one of 'simple', 'formula', 'full'")
     
     
     if mode == 'formula':
         multiset_cot = [f" The molecular formula is {Chem.rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(smiles))}." for smiles in smiles_list]
+        
     else:
         multiset_cot = []
         token_name_dict = map_token_name()
         
         
         tokens = [tokenize(smiles)[1:-1] for smiles in smiles_list]
-        token_count = [Counter(token) for token in tokens]
-        multiset_list = [{key: value for key, value in tc.items() if key in set(NODE_TOKENS).union(BOND_TOKENS)} for tc in token_count]
-        
-        for multiset in multiset_list:
-            cot = " It includes"
-            for key, value in multiset.items():
-                if mode == 'simple':
-                    if value == 1:
-                        cot += f" {value} {key},"
+        if mode == 'only_type':
+            token_set = [set(token) for token in tokens]
+            token_set = [[t for t in token if t in set(NODE_TOKENS).union(BOND_TOKENS)] for token in token_set]
+            return [" It includes " + ", ".join(token) + '.' if len(token) > 0 else "" for token in token_set]
+        else:
+            token_count = [Counter(token) for token in tokens]
+            multiset_list = [{key: value for key, value in tc.items() if key in set(NODE_TOKENS).union(BOND_TOKENS)} for tc in token_count]
+            
+            for multiset in multiset_list:
+                cot = " It includes"
+                for key, value in multiset.items():
+                    if mode == 'simple':
+                        if value == 1:
+                            cot += f" {value} {key},"
+                        else:
+                            cot += f" {value} {key}s,"
                     else:
-                        cot += f" {value} {key}s,"
-                else:
-                    if value == 1:
-                        cot += f" {value} {token_name_dict[key]},"
-                    else:
-                        cot += f" {value} {token_name_dict[key]}s,"
-                    
-            cot = cot[:-1] + '.'
-            multiset_cot.append(cot)
+                        if value == 1:
+                            cot += f" {value} {token_name_dict[key]},"
+                        else:
+                            cot += f" {value} {token_name_dict[key]}s,"
+                        
+                cot = cot[:-1] + '.'
+                multiset_cot.append(cot)
 
-    return multiset_cot
+        return multiset_cot
 
 def map_ring_cot(smiles_list):
     '''
@@ -272,7 +278,7 @@ def map_cot_mode(hparams):
         cot_mode += '-frag'
     if cot_mode_ring:
         cot_mode += '-ring'
-    if cot_mode_multiset in ['simple', 'full', 'formula']:
+    if cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
