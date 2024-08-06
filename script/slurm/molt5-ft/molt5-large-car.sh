@@ -29,7 +29,8 @@ srun python model/one_stage_generator.py \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
---epochs 250
+--epochs 250 \
+--run_id 1xs50x69
 
 
 

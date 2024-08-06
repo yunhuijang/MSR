@@ -27,7 +27,8 @@ srun python model/pretrain_llama.py \
 --eval_batch_size 4 \
 --gen_batch_size 32 \
 --epochs 10 \
---max_length 100
+--max_length 100 \
+--run_id 1azi0wgu
 
 
 
