@@ -17,7 +17,7 @@ from model.one_stage_generator_llama import FineTuneTranslatorLlama, WandbPredic
 os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 os.environ["PYTORCH_USE_CUDA_DSA"] = "1"
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+os.environ["WANDB__SERVICE_WAIT"] = "1000"
 # os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
 class PreTrainLlama(FineTuneTranslatorLlama):
