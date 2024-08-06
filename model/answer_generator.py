@@ -66,7 +66,7 @@ class FineTuneAnswer(FineTuneTranslator):
                 iupac_cot_list = map_iupac_cot(gt_smiles_list)
                 data_dict['cot_iupac'] = iupac_cot_list
                 
-            if self.hpraams.cot_mode_con_ring_name:
+            if self.hparams.cot_mode_con_ring_name:
                 ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
                 data_dict['cot_connected_ring_name'] = ring_name_cot_list
             
