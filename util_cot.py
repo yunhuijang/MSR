@@ -12,6 +12,9 @@ from rdkit.Chem import MCS
 import logging
 import pubchempy
 import json
+from itertools import combinations
+import collections
+import itertools
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
@@ -182,18 +185,19 @@ def smiles_to_iupac(smiles):
         logging.warning(f"Error in mapping SMILES: {smiles}")
         return ""
     m = compounds[0]
-    return m.iupac_name
+    if m.iupac_name is None:
+        return ""
+    else:
+        return m.iupac_name
 
 def map_ring_name_cot(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     ring_info = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
-
-    ring_info_multiset = [["".join([map_symbol(mol, index, i, len(ring)) for i, index in enumerate(ring)]) for ring in ri] for mol, ri in zip(mols, tqdm(ring_info, 'Map Ring Names'))]
-    # ring_info_multiset = [[ri[0] + '1' + ri[1:] + '1' for ri in ring_info] for ring_info in ring_info_multiset]
+    ring_smiles = [[Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=s) for s in ri] for mol, ri in zip(mols, ring_info)]
     with open('resource/data/ring_to_iupac.json', 'r') as fp:
         ring_name_dict = json.load(fp)
-    ring_info_multiset_iupac = [[ring_name_dict.get(ri, "") for ri in ring_info] for ring_info in ring_info_multiset]
-    ring_info_count = [Counter(ring_info) for ring_info in ring_info_multiset_iupac]
+    ring_info_multiset_iupac = [[ring_name_dict.get(smi, "") for smi in smis] for smis in ring_smiles]
+    ring_info_count = [Counter(ri) for ri in ring_info_multiset_iupac]
     ring_cot = []
     for srs in ring_info_count:
         cot = " It includes"
@@ -206,7 +210,7 @@ def map_ring_name_cot(smiles_list):
         if cot == " It include.":
             cot = " It does not include any rings."
 
-        
+        cot.replace("  ", " ")
         ring_cot.append(cot)
         
     return ring_cot
@@ -241,6 +245,111 @@ def map_fragment_cot(split):
         frag_cot.append(cot)
     return frag_cot
 
+def merge_connected_ring(ring_set):
+    result, visited = set(), set()
+    components = collections.defaultdict(list)
+    adj_list = collections.defaultdict(list)
+
+    def dft(node, key):
+        visited.add(node)
+        components[key].append(node)
+        for neighbor in adj_list[node]:
+            if neighbor not in visited:
+                dft(neighbor, key)
+
+    for r1, r2 in itertools.combinations_with_replacement(ring_set, 2):
+        r1 = frozenset(r1)
+        r2 = frozenset(r2)
+        if r1 & r2:
+            adj_list[r1].append(r2)
+            adj_list[r2].append(r1)
+    for node in adj_list:
+        if node not in visited:
+            dft(node, node)
+
+    for node, neighbors in components.items():
+        result.add(node.union(*neighbors))
+        
+    return result
+
+def get_subs(mol, final_ring_set):
+    if len(final_ring_set) > 0:
+        atom_indices = [tuple(set().union(*s)) for s in final_ring_set]
+        substructures = [Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=atom_index) for atom_index in atom_indices]
+        return substructures
+    else:
+        return []
+
+def get_ring_substructure(ri, mol):
+    '''
+    To derive spiro, fused, and bridge ring substructures from molecule
+    '''
+    spiro_set = set()
+    fused_set = set()
+    bridge_set = set()
+    for ring_1, ring_2 in combinations(ri, 2):
+        sharing_atom = set(ring_1) & set(ring_2)
+        if len(sharing_atom) == 1:
+            spiro_set.add(tuple(sorted([ring_1, ring_2])))
+        elif len(sharing_atom) == 2:
+            fused_set.add(tuple(sorted([ring_1, ring_2])))
+        elif len(sharing_atom) > 3:
+            bridge_set.add(tuple(sorted([ring_1, ring_2])))
+    
+    final_fused_set = merge_connected_ring(fused_set)
+    final_spiro_set = merge_connected_ring(spiro_set)
+    final_bridge_set = merge_connected_ring(bridge_set)
+    substructures_fused = get_subs(mol, final_fused_set)
+    substructures_spiro = get_subs(mol, final_spiro_set)
+    substructures_bridge = get_subs(mol, final_bridge_set)
+    
+    return substructures_spiro, substructures_fused, substructures_bridge
+        
+def get_connected_ring_name(ri, mol):
+    
+    if len(ri) == 0:
+        return []
+    substructures_spiro, substructures_fused, substructures_bridge = get_ring_substructure(ri, mol)
+    result_substructures = substructures_fused + substructures_spiro + substructures_bridge
+    final_result = []
+    
+    with open('resource/data/connected_ring_to_iupac.json', 'r') as fp:
+        ring_name_dict = json.load(fp)
+    
+    for smi in result_substructures:
+        iupac = ring_name_dict.get(smi, "unknown")
+        if iupac is None:
+            sub_mol = Chem.MolFromSmiles(smi)
+            sub_ring_info = sub_mol.GetRingInfo().AtomRings()
+            sub_rings = [Chem.rdmolfiles.MolFragmentToSmiles(sub_mol, atomsToUse=s) for s in sub_ring_info]
+            final_result.extend([ring_name_dict.get(sub_ring, "") for sub_ring in sub_rings])
+        else:
+            final_result.append(iupac)
+        
+    # print(final_result)
+    return final_result
+
+def map_connected_ring_name_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
+    ring_connectivity = [get_connected_ring_name(ri, mol) for ri, mol in zip(tqdm(ring_info), mols)]
+    ring_info_count = [Counter(ri) for ri in ring_connectivity]
+    ring_cot = []
+    for srs in ring_info_count:
+        cot = " It includes"
+        for key, value in srs.items():
+            if value == 1:
+                cot += f" {value} {key} ring,"
+            else:
+                cot += f" {value} {key} rings,"
+        cot = cot[:-1] + '.'
+        if cot == " It include.":
+            cot = " It does not include any rings."
+
+        cot = cot.replace("  ", " ")
+        ring_cot.append(cot)
+        
+    return ring_cot
 
 def canonicalize(smiles, is_kekulize=False):
     try:
@@ -262,7 +371,7 @@ def map_cot_mode(hparams):
     '''
     Map CoT mode to string
     '''
-    
+    # <FIX> Need to be fixed when CoT added
     cot_mode_multiset = hparams.cot_mode_multiset
     cot_mode_ring = hparams.cot_mode_ring
     cot_mode_fragment = hparams.cot_mode_fragment
@@ -270,7 +379,8 @@ def map_cot_mode(hparams):
     cot_mode_chain = hparams.cot_mode_chain
     cot_mode_ring_name = hparams.cot_mode_ring_name
     cot_mode_iupac = hparams.cot_mode_iupac
-    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, iupac
+    cot_mode_con_ring_name = hparams.cot_mode_con_ring_name
+    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, connected_ring_name, iupac
     cot_mode = ""
     if cot_mode_chain:
         cot_mode += '-chain'
@@ -284,6 +394,8 @@ def map_cot_mode(hparams):
         cot_mode += '-arom'
     if cot_mode_ring_name:
         cot_mode += '-rname'
+    if cot_mode_con_ring_name:
+        cot_mode += '-conrna'
     if cot_mode_iupac:
         cot_mode += '-iupac'
         
@@ -291,9 +403,12 @@ def map_cot_mode(hparams):
 
 def add_cot_to_target(examples, targets, cot_mode):
     # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, iupac
-    
+    # <FIX> Need to be fixed when CoT added
     if 'iupac' in cot_mode:
         targets = [f"{cot_iupac}{target}" for target, cot_iupac in zip(targets, examples['cot_iupac'])]
+    
+    if 'conrna' in cot_mode:
+        targets = [f"{cot_con_ring_name}{target}" for target, cot_con_ring_name in zip(targets, examples['cot_connected_ring_name'])]
     
     if 'rname' in cot_mode:
         targets = [f"{cot_ring_name}{target}" for target, cot_ring_name in zip(targets, examples['cot_ring_name'])]

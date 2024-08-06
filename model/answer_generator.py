@@ -15,7 +15,7 @@ from datasets import Dataset
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot, map_connected_ring_name_cot
 
 
 class FineTuneAnswer(FineTuneTranslator):
@@ -38,7 +38,7 @@ class FineTuneAnswer(FineTuneTranslator):
         data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
         if split in ['train', 'validation']:
             cot_list = ["" for _ in range(len(gt_smiles_list))]
-            if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula']:
+            if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
                 multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
                 data_dict['cot_multiset'] = multiset_cot_list
             
@@ -59,16 +59,19 @@ class FineTuneAnswer(FineTuneTranslator):
                 data_dict['cot_chain'] = chain_cot_list
             
             if self.hparams.cot_mode_ring_name:
-                ring_name_cot_list = map_ring_name_cot(gt_smiles_list, mode='name')
+                ring_name_cot_list = map_ring_name_cot(gt_smiles_list)
                 data_dict['cot_ring_name'] = ring_name_cot_list
             
             if self.hparams.cot_mode_iupac:
-                iupac_cot_list = map_iupac_cot(gt_smiles_list, mode='iupac')
+                iupac_cot_list = map_iupac_cot(gt_smiles_list)
                 data_dict['cot_iupac'] = iupac_cot_list
+                
+            if self.hpraams.cot_mode_con_ring_name:
+                ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
+                data_dict['cot_connected_ring_name'] = ring_name_cot_list
             
             cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
             data_dict['cot'] = cot_list
-            print('hi')
             
         else:
             file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
@@ -107,6 +110,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
+        parser.add_argument("--cot_mode_con_ring_name", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)

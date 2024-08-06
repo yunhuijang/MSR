@@ -22,7 +22,7 @@ import torch
 
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot
 from analysis import compute_cot_accuracy
 
 class FineTuneTranslator(pl.LightningModule):
@@ -35,7 +35,7 @@ class FineTuneTranslator(pl.LightningModule):
         self.sanity_checked = False
     
     def load_dataset(self, split):
-    
+        # <FIX> Need to be fixed when CoT added
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
@@ -75,7 +75,11 @@ class FineTuneTranslator(pl.LightningModule):
         if self.hparams.cot_mode_iupac:
             iupac_cot_list = map_iupac_cot(gt_smiles_list)
             data_dict['cot_iupac'] = iupac_cot_list
-            
+        
+        if self.hparams.cot_mode_con_ring_name:
+            ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
+            data_dict['cot_connected_ring_name'] = ring_name_cot_list
+        
         dataset = Dataset.from_dict(data_dict)
         
         
@@ -110,13 +114,14 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-small')
-        parser.add_argument("--cot_mode_multiset", type=str, default='only_type')
+        parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
         parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
+        parser.add_argument("--cot_mode_con_ring_name", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)

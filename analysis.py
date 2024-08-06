@@ -13,7 +13,7 @@ import re
 from itertools import compress
 import logging
 
-from util_cot import canonicalize, map_ring_cot, map_multiset_cot, map_token_name, map_carbon_chain_length
+from util_cot import map_ring_cot, map_multiset_cot
 from tokens import tokenize, NODE_TOKENS, BOND_TOKENS
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -207,7 +207,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     '''
     Compare the ground-truth CoT to predicted CoT
     '''
-
+    # <FIX> Need to be fixed when CoT added
     result = []
     
     cot_modes = cot_mode.split('-')
@@ -242,6 +242,9 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
             pred_info_list = [map_iupac_from_cot(pred) for pred in cur_predicted_cot_list]
             is_only_count = True
         elif mode == 'rname':
+            gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
+        elif mode == 'conrna':
             gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
             
