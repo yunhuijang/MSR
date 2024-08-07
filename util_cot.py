@@ -194,7 +194,7 @@ def map_ring_name_cot(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     ring_info = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
     ring_smiles = [[Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=s) for s in ri] for mol, ri in zip(mols, ring_info)]
-    with open('resource/data/ring_to_iupac.json', 'r') as fp:
+    with open('resource/data/total_ring_to_iupac.json', 'r') as fp:
         ring_name_dict = json.load(fp)
     ring_info_multiset_iupac = [[ring_name_dict.get(smi, "") for smi in smis] for smis in ring_smiles]
     ring_info_count = [Counter(ri) for ri in ring_info_multiset_iupac]
@@ -305,34 +305,36 @@ def get_ring_substructure(ri, mol):
     
     return substructures_spiro, substructures_fused, substructures_bridge
         
-def get_connected_ring_name(ri, mol):
+def get_connected_ring_name(ri, mol, ring_name_dict):
     
     if len(ri) == 0:
         return []
     substructures_spiro, substructures_fused, substructures_bridge = get_ring_substructure(ri, mol)
     result_substructures = substructures_fused + substructures_spiro + substructures_bridge
-    final_result = []
-    
-    with open('resource/data/connected_ring_to_iupac.json', 'r') as fp:
-        ring_name_dict = json.load(fp)
-    
-    for smi in result_substructures:
-        iupac = ring_name_dict.get(smi, "unknown")
-        if iupac is None:
-            sub_mol = Chem.MolFromSmiles(smi)
-            sub_ring_info = sub_mol.GetRingInfo().AtomRings()
-            sub_rings = [Chem.rdmolfiles.MolFragmentToSmiles(sub_mol, atomsToUse=s) for s in sub_ring_info]
-            final_result.extend([ring_name_dict.get(sub_ring, "") for sub_ring in sub_rings])
-        else:
-            final_result.append(iupac)
-        
-    # print(final_result)
+    if (len(ri)>0) and (len(result_substructures) == 0):
+        # When the ring is not fused, spiro, or bridge (only independent rings)
+        ring_smiles = [Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=s) for s in ri]
+        final_result = [ring_name_dict.get(smi, "unknown") for smi in ring_smiles]
+    else:
+        final_result = []
+        for smi in result_substructures:
+            iupac = ring_name_dict.get(smi, "unknown")
+            if iupac in ['unknown', '']:
+                sub_mol = Chem.MolFromSmiles(smi)
+                sub_ring_info = sub_mol.GetRingInfo().AtomRings()
+                sub_rings = [Chem.rdmolfiles.MolFragmentToSmiles(sub_mol, atomsToUse=s) for s in sub_ring_info]
+                final_result.extend([ring_name_dict.get(sub_ring, "unknown") for sub_ring in sub_rings])
+            else:
+                final_result.append(iupac)
+                
     return final_result
 
 def map_connected_ring_name_cot(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
-    ring_connectivity = [get_connected_ring_name(ri, mol) for ri, mol in zip(tqdm(ring_info), mols)]
+    with open('resource/data/total_ring_to_iupac.json', 'r') as fp:
+        ring_name_dict = json.load(fp)
+    ring_connectivity = [get_connected_ring_name(ri, mol, ring_name_dict) for ri, mol in zip(tqdm(ring_info), mols)]
     ring_info_count = [Counter(ri) for ri in ring_connectivity]
     ring_cot = []
     for srs in ring_info_count:

@@ -83,7 +83,7 @@ connected_ring_iupac_dict = {}
 for smi in tqdm(ring_smiles, 'Map IUPAC'):
     connected_ring_iupac_dict[smi] = smiles_to_iupac(smi)
 
-with open('resource/data/connected_ring_to_iupac.json', 'w') as f:
+with open('resource/data/total_ring_to_iupac.json', 'w') as f:
     json.dump(connected_ring_iupac_dict, f)
 
 
