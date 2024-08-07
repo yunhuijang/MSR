@@ -18,7 +18,8 @@ import itertools
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
-
+def flatten(xss):
+    return [x for xs in xss for x in xs]
 
 def map_token_name():
     '''
@@ -196,7 +197,7 @@ def map_ring_name_cot(smiles_list):
     ring_smiles = [[Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=s) for s in ri] for mol, ri in zip(mols, ring_info)]
     with open('resource/data/total_ring_to_iupac.json', 'r') as fp:
         ring_name_dict = json.load(fp)
-    ring_info_multiset_iupac = [[ring_name_dict.get(smi, "") for smi in smis] for smis in ring_smiles]
+    ring_info_multiset_iupac = [[ring_name_dict.get(smi, "unknown") for smi in smis] for smis in ring_smiles]
     ring_info_count = [Counter(ri) for ri in ring_info_multiset_iupac]
     ring_cot = []
     for srs in ring_info_count:
@@ -303,29 +304,39 @@ def get_ring_substructure(ri, mol):
     substructures_spiro = get_subs(mol, final_spiro_set)
     substructures_bridge = get_subs(mol, final_bridge_set)
     
-    return substructures_spiro, substructures_fused, substructures_bridge
+    independent_rings = set(ri)-set(flatten(final_fused_set))-set(flatten(final_spiro_set))-set(flatten(final_bridge_set))
+    substructures_independent = [Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=atom_index) for atom_index in independent_rings]
+    return substructures_spiro, substructures_fused, substructures_bridge, substructures_independent
         
 def get_connected_ring_name(ri, mol, ring_name_dict):
     
     if len(ri) == 0:
         return []
-    substructures_spiro, substructures_fused, substructures_bridge = get_ring_substructure(ri, mol)
-    result_substructures = substructures_fused + substructures_spiro + substructures_bridge
-    if (len(ri)>0) and (len(result_substructures) == 0):
-        # When the ring is not fused, spiro, or bridge (only independent rings)
-        ring_smiles = [Chem.rdmolfiles.MolFragmentToSmiles(mol, atomsToUse=s) for s in ri]
-        final_result = [ring_name_dict.get(smi, "unknown") for smi in ring_smiles]
-    else:
-        final_result = []
-        for smi in result_substructures:
-            iupac = ring_name_dict.get(smi, "unknown")
-            if iupac in ['unknown', '']:
-                sub_mol = Chem.MolFromSmiles(smi)
-                sub_ring_info = sub_mol.GetRingInfo().AtomRings()
-                sub_rings = [Chem.rdmolfiles.MolFragmentToSmiles(sub_mol, atomsToUse=s) for s in sub_ring_info]
-                final_result.extend([ring_name_dict.get(sub_ring, "unknown") for sub_ring in sub_rings])
-            else:
-                final_result.append(iupac)
+    substructures_spiro, substructures_fused, substructures_bridge, substructure_independent = get_ring_substructure(ri, mol)
+    substructures_spiro = [('spiro', s) for s in substructures_spiro]
+    substructures_fused = [('fused', s) for s in substructures_fused]
+    substructures_bridge = [('bridge', s) for s in substructures_bridge]
+    substructure_independent = [('independent', s) for s in substructure_independent]
+    result_substructures = substructures_fused + substructures_spiro + substructures_bridge + substructure_independent
+    final_result = []
+    for ring_type, smi in result_substructures:
+        # ring_size = len("".join(filter(str.isalpha, smi)))
+        iupac = ring_name_dict.get(smi, f"unknown {ring_type}")
+        if iupac in ['unknown', '']:
+            ring_mol = Chem.MolFromSmiles(smi)
+            # (Connected) Ring molecule is not available
+            if ring_mol is None:
+                print(Chem.MolToSmiles(mol))
+                final_result.append(f"unknown {ring_type}")
+                continue
+            # Cannot map IUPAC name for the ring substructure -> try to decompose the ring further
+            decomposed_ring_info = ring_mol.GetRingInfo().AtomRings()
+            decomposed_rings = [Chem.rdmolfiles.MolFragmentToSmiles(ring_mol, atomsToUse=s) for s in decomposed_ring_info]
+            decomposed_result_list = [ring_name_dict.get(sub_ring, "unknown independent") for sub_ring in decomposed_rings]
+            decomposed_result_list = [r if r is not None else 'unknown independent' for r in decomposed_result_list]
+            final_result.extend(decomposed_result_list)
+        else:
+            final_result.append(iupac)
                 
     return final_result
 
