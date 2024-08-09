@@ -27,7 +27,8 @@ srun python model/answer_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---max_length 512
+--max_length 512 \
+--run_id xugpl4ds
 
 
 
