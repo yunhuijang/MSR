@@ -24,6 +24,6 @@ srun python evaluate_pretrained_model.py \
 --architecture biot5-plus-base \
 --split test \
 --model_id QizhiPei \
---finetune_task -text2mol \
+--finetune_task=-text2mol \
 --wandb_mode online 
 
