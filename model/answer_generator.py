@@ -90,7 +90,6 @@ class FineTuneAnswer(FineTuneTranslator):
         inputs = examples["description"]
         targets = examples['smiles']
         # cot_keys = [x for x in self.train_dataset.features.keys() if 'cot' in x]
-        # TODO: multiple CoT
         cots = examples['cot']
         
         # file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
@@ -122,6 +121,8 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+
 
         return parser
 

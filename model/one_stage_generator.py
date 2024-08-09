@@ -95,9 +95,9 @@ class FineTuneTranslator(pl.LightningModule):
         
     
     def setup_model(self, hparams):
-        self.tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{hparams.architecture}{hparams.task}", model_max_length=hparams.max_length)
+        self.tokenizer = T5Tokenizer.from_pretrained(f"{hparams.model_id}/{hparams.architecture}{hparams.task}", model_max_length=hparams.max_length)
         # TODO: tokenizer training?
-        self.pretrained_model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{hparams.architecture}{hparams.task}')
+        self.pretrained_model = T5ForConditionalGeneration.from_pretrained(f'{hparams.model_id}/{hparams.architecture}{hparams.task}')
         self.data_collator = DataCollatorForSeq2Seq(tokenizer=self.tokenizer, model=self.pretrained_model)
         
     def preprocess_function(self, examples):
@@ -113,7 +113,8 @@ class FineTuneTranslator(pl.LightningModule):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small')
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
@@ -133,6 +134,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
 
         return parser
 
