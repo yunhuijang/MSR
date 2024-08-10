@@ -19,7 +19,7 @@ import wandb
 import pytorch_lightning as pl
 from huggingface_hub.hf_api import HfFolder
 import torch
-
+import selfies
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot
@@ -39,7 +39,7 @@ class FineTuneTranslator(pl.LightningModule):
         smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
         smiles_pair_list = [
         [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
+        ][1:][:30]
         # if self.hparams.test:
         #     smiles_pair_list = smiles_pair_list[:20]
         description_list = [pair[2] for pair in smiles_pair_list]
@@ -104,6 +104,12 @@ class FineTuneTranslator(pl.LightningModule):
         inputs = examples["description"]
         targets = examples['smiles']
         cot_mode = map_cot_mode(self.hparams)
+
+        if self.hparams.architecture.split('-')[0] == 'biot5':
+            # convert to selfies
+            mols = [Chem.MolFromSmiles(target) for target in targets]
+            targets = [selfies.encoder(Chem.MolToSmiles(mol)) for mol in mols]
+        
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
         targets = add_cot_to_target(examples, targets, cot_mode)
@@ -145,6 +151,7 @@ class WandbPredictionProgressCallback(WandbCallback):
         self.tokenizer = tokenizer
         self.test_dataset = test_dataset
         self.hparams = hparams
+        self.base_arch = self.hparams.architecture.split('-')[0]
     
     def postprocess_text(self, preds, labels):
         preds = [pred.strip() for pred in preds]
@@ -170,11 +177,16 @@ class WandbPredictionProgressCallback(WandbCallback):
         if cot_mode != "":
             columns = ['description', 'gt_smiles', 'predicted_smiles', 'gt_cot', 'predicted_cot']
             # TODO: fix for llama
-            
-            gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-            if 'llama' in file_name:
-                predicted_cots = [dp[:dp.find("The SMILES of the molecule is: ")].split('.')[-2][1:]+'.' if (dp.find("Then, ") > -1) and (dp.find("The SMILES of the molecule is: ")>-1) else " " for dp in decoded_preds]
+            num_cot = len(cot_mode.split('-'))-1
+            if self.base_arch == 'biot5':
+                gt_cots = [".".join(dl.split('.')[:num_cot]) + '.' for dl in decoded_labels]
             else:
+                gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
+            if self.base_arch == 'llama':
+                predicted_cots = [dp[:dp.find("The SMILES of the molecule is: ")].split('.')[-2][1:]+'.' if (dp.find("Then, ") > -1) and (dp.find("The SMILES of the molecule is: ")>-1) else " " for dp in decoded_preds]
+            elif self.base_arch == 'biot5':
+                predicted_cots = [".".join(dp.split('.')[:num_cot]) + '.' for dp in decoded_preds]
+            else:   
                 predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
             # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
             if (self.tokenizer.eos_token != None) and (self.tokenizer.bos_token != None):
@@ -245,8 +257,16 @@ class WandbPredictionProgressCallback(WandbCallback):
                 gt_smiles = decoded_labels
                 predicted_smiles = decoded_preds
             else:
-                gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
-                predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
+                if self.base_arch == 'biot5':
+                    num_cot = len(run_name.split('-'))-1
+                    # selfies to smiles
+                    gt_selfies = ["".join(dl.split('.')[num_cot:]).replace(" ", "") for dl in decoded_labels]
+                    gt_smiles = [selfies.decoder(sf) for sf in gt_selfies]
+                    predicted_selfies =  ["".join(dp.split('.')[num_cot:]).replace(" ", "") for dp in decoded_preds]
+                    predicted_smiles = [selfies.decoder(sf) for sf in predicted_selfies]
+                else:
+                    gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
+                    predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
             
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
             
