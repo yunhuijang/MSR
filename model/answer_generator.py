@@ -10,13 +10,14 @@ os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
 from datasets import Dataset
-
+import selfies
+from rdkit import Chem
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot, map_connected_ring_name_cot
-
+from util import selfies_to_smiles
 
 class FineTuneAnswer(FineTuneTranslator):
     def __init__(self, hparams):
@@ -89,19 +90,23 @@ class FineTuneAnswer(FineTuneTranslator):
     def preprocess_function(self, examples):
         inputs = examples["description"]
         targets = examples['smiles']
-        # cot_keys = [x for x in self.train_dataset.features.keys() if 'cot' in x]
         cots = examples['cot']
         
-        # file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
-        # cots = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
         inputs = [input_ + cot for input_, cot in zip(inputs, cots)]
+        
+        if self.hparams.architecture.split('-')[0] == 'biot5':
+            # convert to selfies
+            mols = [Chem.MolFromSmiles(target) for target in targets]
+            targets = [selfies.encoder(Chem.MolToSmiles(mol)) for mol in mols]
+        
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-base')
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
@@ -152,8 +157,12 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
             file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             
-            gt_smiles = decoded_labels
-            predicted_smiles = decoded_preds
+            if self.base_arch == 'biot5':
+                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
+                predicted_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_preds]
+            else:
+                gt_smiles = decoded_labels
+                predicted_smiles = decoded_preds
             
             with open(f'{file_name}', 'w') as f:
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
