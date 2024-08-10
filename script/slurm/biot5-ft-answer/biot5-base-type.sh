@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J reason-biobase-type
+#SBATCH -J answer-biobase-type
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -20,7 +20,7 @@ date
 
 nvidia-smi
 
-srun python model/reasoning_generator.py \
+srun python model/answer_generator.py \
 --architecture biot5-plus-base \
 --cot_mode_multiset only_type \
 --wandb_mode online \
