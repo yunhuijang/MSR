@@ -133,7 +133,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         self.tokenizer = tokenizer
 
     
-    def preprocess_function(self, examples):
+    def preprocess_function(self, examples, split):
         inputs = examples["description"]
         targets = examples['smiles']
         if self.hparams.tag:

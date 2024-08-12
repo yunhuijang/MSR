@@ -19,7 +19,7 @@ class FineTuneReasoning(FineTuneTranslator):
         super(FineTuneReasoning, self).__init__(hparams) 
 
     
-    def preprocess_function(self, examples):
+    def preprocess_function(self, examples, split):
         inputs = examples["description"]
         # targets = examples['smiles']
         
