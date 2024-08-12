@@ -12,6 +12,7 @@ from pathlib import Path
 from datasets import Dataset
 import selfies
 from rdkit import Chem
+import json
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
@@ -78,7 +79,7 @@ class FineTuneAnswer(FineTuneTranslator):
             file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
-            data_dict['cot'] = cot_list
+            data_dict['cot'] = cot_list[:len(gt_smiles_list)]
 
             
         dataset = Dataset.from_dict(data_dict)
@@ -87,7 +88,7 @@ class FineTuneAnswer(FineTuneTranslator):
         return dataset
     
     
-    def preprocess_function(self, examples):
+    def preprocess_function(self, examples, split):
         inputs = examples["description"]
         targets = examples['smiles']
         cots = examples['cot']
@@ -95,9 +96,15 @@ class FineTuneAnswer(FineTuneTranslator):
         inputs = [input_ + cot for input_, cot in zip(inputs, cots)]
         
         if self.hparams.architecture.split('-')[0] == 'biot5':
+            # add instruction to input
+            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+
+            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp} \nOutput: ' for inp in inputs]
+            
             # convert to selfies
-            mols = [Chem.MolFromSmiles(target) for target in targets]
-            targets = [selfies.encoder(Chem.MolToSmiles(mol)) for mol in mols]
+            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+                data = json.load(f)
+            targets = [d['output'][0] for d in data['Instances']][:len(inputs)]
         
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
@@ -105,12 +112,12 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--cot_mode_aromatic", action='store_true')
+        parser.add_argument("--cot_mode_aromatic", action='store_false')
         parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
@@ -126,7 +133,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
 
 
         return parser
