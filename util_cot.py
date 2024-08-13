@@ -15,6 +15,8 @@ import json
 from itertools import combinations
 import collections
 import itertools
+from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmilesFromSmiles 
+
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
@@ -223,6 +225,15 @@ def map_iupac_cot(smiles_list):
     
     return cot_list
 
+def map_scaffold_cot(smiles_list):
+    scaffolds = [MurckoScaffoldSmilesFromSmiles(smiles) for smiles in smiles_list]
+    with open('resource/data/scaffold_to_iupac.json', 'r') as fp:
+        scaffold_name_dict = json.load(fp)
+    scaffold_iupac = [scaffold_name_dict.get(smi, "unknown") for smi in scaffolds]
+    cot_list = [f" The scaffold is {scaffold}." if len(scaffold)>0 else " The scaffold is unknown." for scaffold in scaffold_iupac]
+
+    return cot_list
+
 def map_fragment_cot(split):
     '''
     SMILES -> Fragment CoT based on BRICS fragmentation
@@ -393,6 +404,8 @@ def map_cot_mode(hparams):
     cot_mode_ring_name = hparams.cot_mode_ring_name
     cot_mode_iupac = hparams.cot_mode_iupac
     cot_mode_con_ring_name = hparams.cot_mode_con_ring_name
+    cot_mode_scaffold = hparams.cot_mode_scaffold
+    cot_mode_functional_group = hparams.cot_mode_functional_group
     # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, connected_ring_name, iupac
     cot_mode = ""
     if cot_mode_chain:
@@ -411,7 +424,11 @@ def map_cot_mode(hparams):
         cot_mode += '-conrna'
     if cot_mode_iupac:
         cot_mode += '-iupac'
-        
+    if cot_mode_scaffold:
+        cot_mode += '-scaffold'
+    if cot_mode_functional_group:
+        cot_mode += '-fg'
+    
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
@@ -441,5 +458,7 @@ def add_cot_to_target(examples, targets, cot_mode):
     if 'chain' in cot_mode:
         targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_chain'])]
 
+    if 'scaffold' in cot_mode:
+        targets = [f"{cot_scaffold}{target}" for target, cot_scaffold in zip(targets, examples['cot_scaffold'])]
     
     return targets

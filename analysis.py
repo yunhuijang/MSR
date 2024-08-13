@@ -184,6 +184,12 @@ def map_ring_name_from_cot(cot):
                 ring_dict[ring_name] = ring_number
     return dict(sorted(ring_dict.items()))
     
+def map_scaffold_from_cot(cot):
+    if "The scaffold is" in cot:
+        scaffold = cot[len(" The scaffold is "):-1]
+    else:
+        scaffold = ""
+    return scaffold
 
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
     # whole information of rings
@@ -247,7 +253,12 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         elif mode == 'conrna':
             gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
-            
+        elif mode == 'scaffold':
+            gt_info_list = [map_scaffold_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_scaffold_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
+        
+        
         acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count)
         result.append(acc_list)
     return result
