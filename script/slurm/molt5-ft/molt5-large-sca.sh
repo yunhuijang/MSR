@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J reason-small-ring
-#SBATCH -p A5000
+#SBATCH -J ft-large-sca
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -20,16 +20,15 @@ date
 
 nvidia-smi
 
-srun python model/reasoning_generator.py \
---architecture molt5-small \
+srun python model/one_stage_generator.py \
+--architecture molt5-large \
 --cot_mode_multiset None \
---cot_mode_ring \
+--cot_mode_scaffold \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---max_length 512
-
+--model_id laituan245
 
 
 

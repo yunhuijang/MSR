@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J ft-biolarge-ring
-#SBATCH -p A100-80GB
+#SBATCH -J reason-base-sca
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -20,15 +20,17 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator.py \
---architecture biot5-plus-large \
+srun python model/reasoning_generator.py \
+--architecture molt5-base \
 --cot_mode_multiset None \
---cot_mode_aromatic \
+--cot_mode_scaffold \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei
+--max_length 512 \
+--model_id laituan245
+
 
 
 

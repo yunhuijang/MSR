@@ -30,7 +30,9 @@ srun python model/reasoning_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---max_length 512
+--max_length 512 \
+--model_id laituan245
+
 
 
 
