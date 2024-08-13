@@ -29,7 +29,9 @@ srun python model/answer_generator.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --max_length 512 \
---run_id s4hjnlok
+--run_id s4hjnlok \
+--model_id laituan245
+
 
 
 

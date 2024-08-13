@@ -30,7 +30,9 @@ srun python model/answer_generator.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --max_length 512 \
---run_id 612ng8ep
+--run_id 612ng8ep \
+--model_id laituan245
+
 
 
 

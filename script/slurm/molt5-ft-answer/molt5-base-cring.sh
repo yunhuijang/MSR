@@ -28,7 +28,8 @@ srun python model/answer_generator.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --max_length 512 \
---run_id 2jq8agtw
+--run_id 2jq8agtw \
+--model_id laituan245
 
 
 
