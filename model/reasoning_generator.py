@@ -44,6 +44,8 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
         parser.add_argument("--cot_mode_con_ring_name", action='store_true')
+        parser.add_argument("--cot_mode_scaffold", action='store_true')
+        parser.add_argument("--cot_mode_functional_group", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)
