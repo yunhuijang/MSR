@@ -43,8 +43,10 @@ class FineTuneTranslator(pl.LightningModule):
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
             description_list = [d['input'] for d in data['Instances']]
-            gt_smiles_list = [d['output'][0] for d in data['Instances']]
+            gt_selfies_list = [d['output'][0] for d in data['Instances']]
+            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
             id_list = [d['id'] for d in data['Instances']]
+            data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
         else:
             smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
             smiles_pair_list = [
@@ -55,8 +57,8 @@ class FineTuneTranslator(pl.LightningModule):
             description_list = [pair[2] for pair in smiles_pair_list]
             gt_smiles_list = [pair[1] for pair in smiles_pair_list]
             id_list = [pair[0] for pair in smiles_pair_list]
-        
-        data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+            data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+            
         if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
             multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
             data_dict['cot_multiset'] = multiset_cot_list
