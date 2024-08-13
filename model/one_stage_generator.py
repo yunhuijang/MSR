@@ -23,7 +23,7 @@ import selfies
 import json
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot
 from analysis import compute_cot_accuracy
 from util import selfies_to_smiles
 
@@ -94,6 +94,10 @@ class FineTuneTranslator(pl.LightningModule):
         if self.hparams.cot_mode_scaffold:
             scaffold_cot_list = map_scaffold_cot(gt_smiles_list)
             data_dict['cot_scaffold'] = scaffold_cot_list
+            
+        if self.hparams.cot_mode_functional_group:
+            fg_cot_list = map_functional_group_cot(gt_smiles_list)
+            data_dict['cot_functional_group'] = fg_cot_list
         
         dataset = Dataset.from_dict(data_dict)
         
@@ -143,7 +147,7 @@ class FineTuneTranslator(pl.LightningModule):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
@@ -166,7 +170,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
 
         return parser
 

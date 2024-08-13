@@ -16,6 +16,8 @@ from itertools import combinations
 import collections
 import itertools
 from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmilesFromSmiles 
+from thermo import functional_groups
+from inspect import getmembers, isfunction
 
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
@@ -233,6 +235,21 @@ def map_scaffold_cot(smiles_list):
     cot_list = [f" The scaffold is {scaffold}." if len(scaffold)>0 else " The scaffold is unknown." for scaffold in scaffold_iupac]
 
     return cot_list
+
+def map_functional_group_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(target) for target in smiles_list]
+    functional_group_list = getmembers(functional_groups, isfunction)
+    functional_group_list = [(name, function) for name, function in functional_group_list if 'is' in name]
+    mol_groups = []
+    for mol in mols:
+        groups = [name for name, func in functional_group_list if func(mol)]
+        groups = [group.split('_')[1] for group in groups]
+        mol_groups.append(groups)
+    cot_list = [f" The functional group of the molecule is {', '.join(groups)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups in mol_groups]
+    
+    
+    return cot_list
+
 
 def map_fragment_cot(split):
     '''
@@ -460,5 +477,8 @@ def add_cot_to_target(examples, targets, cot_mode):
 
     if 'scaffold' in cot_mode:
         targets = [f"{cot_scaffold}{target}" for target, cot_scaffold in zip(targets, examples['cot_scaffold'])]
+        
+    if 'fg' in cot_mode:
+        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
     
     return targets

@@ -191,6 +191,15 @@ def map_scaffold_from_cot(cot):
         scaffold = ""
     return scaffold
 
+def map_functional_group_from_cot(cot):
+    if "The functional group of the molecule is" in cot:
+        functional_groups = cot[len(" The functional group of the molecule is "):-1]
+        fgs = set(functional_groups.split(','))
+        fgs = [fg.strip() for fg in fgs]
+    else:
+        fgs = set()
+    return sorted(fgs)
+
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
     # whole information of rings
     info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
@@ -256,6 +265,10 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         elif mode == 'scaffold':
             gt_info_list = [map_scaffold_from_cot(gt) for gt in cur_gt_cot_list]
             pred_info_list = [map_scaffold_from_cot(pred) for pred in cur_predicted_cot_list]
+            is_only_count = True
+        elif mode == 'fg':
+            gt_info_list = [map_functional_group_from_cot(gt) for gt in cur_gt_cot_list]
+            pred_info_list = [map_functional_group_from_cot(pred) for pred in cur_predicted_cot_list]
             is_only_count = True
         
         
