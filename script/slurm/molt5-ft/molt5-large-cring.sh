@@ -28,7 +28,8 @@ srun python model/one_stage_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---run_id pmgge0o4
+--run_id pmgge0o4 \
+--model_id laituan245
 
 
 

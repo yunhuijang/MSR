@@ -97,9 +97,9 @@ class FineTuneAnswer(FineTuneTranslator):
         
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+            # task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
 
-            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp} \nOutput: ' for inp in inputs]
+            # inputs = [f'{task_definition}Now complete the following example -\nInput: {inp} \nOutput: ' for inp in inputs]
             
             # convert to selfies
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
