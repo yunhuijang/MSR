@@ -117,7 +117,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--cot_mode_aromatic", action='store_false')
+        parser.add_argument("--cot_mode_aromatic", action='store_true')
         parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
