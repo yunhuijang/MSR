@@ -26,18 +26,27 @@ class FineTuneAnswer(FineTuneTranslator):
         super(FineTuneAnswer, self).__init__(hparams)
     
     def load_dataset(self, split):
-    
-        smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
-        smiles_pair_list = [
-        [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
-        # if self.hparams.test:
-        #     smiles_pair_list = smiles_pair_list[:20]
-        description_list = [pair[2] for pair in smiles_pair_list]
-        gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-        id_list = [pair[0] for pair in smiles_pair_list]
         
-        data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+        if self.base_arch == 'biot5':
+            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+                data = json.load(f)
+            description_list = [d['input'] for d in data['Instances']]
+            gt_selfies_list = [d['output'][0] for d in data['Instances']]
+            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
+            id_list = [d['id'] for d in data['Instances']]
+            data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
+        else:
+            smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+            smiles_pair_list = [
+            [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+            ][1:]
+            # if self.hparams.test:
+            #     smiles_pair_list = smiles_pair_list[:20]
+            description_list = [pair[2] for pair in smiles_pair_list]
+            gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+            id_list = [pair[0] for pair in smiles_pair_list]
+            data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+            
         if split in ['train', 'validation']:
             cot_list = ["" for _ in range(len(gt_smiles_list))]
             if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
@@ -97,14 +106,9 @@ class FineTuneAnswer(FineTuneTranslator):
         
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            # task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
-
-            # inputs = [f'{task_definition}Now complete the following example -\nInput: {inp} \nOutput: ' for inp in inputs]
-            
-            # convert to selfies
-            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
-                data = json.load(f)
-            targets = [d['output'][0] for d in data['Instances']][:len(inputs)]
+            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+# 
+            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp} \nOutput: ' for inp in inputs]
         
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
