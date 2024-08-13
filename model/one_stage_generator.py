@@ -23,7 +23,7 @@ import selfies
 import json
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot
 from analysis import compute_cot_accuracy
 from util import selfies_to_smiles
 
@@ -82,6 +82,10 @@ class FineTuneTranslator(pl.LightningModule):
             ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
             data_dict['cot_connected_ring_name'] = ring_name_cot_list
         
+        if self.hparams.cot_mode_scaffold:
+            scaffold_cot_list = map_scaffold_cot(gt_smiles_list)
+            data_dict['cot_scaffold'] = scaffold_cot_list
+        
         dataset = Dataset.from_dict(data_dict)
         
         
@@ -108,15 +112,15 @@ class FineTuneTranslator(pl.LightningModule):
 
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+            # task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
 
-            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
+            # inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
             
             # convert to selfies
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
             targets = [d['output'][0] for d in data['Instances']]
-            targets = [f"\nOutput: {target}" for target in targets]
+            # targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
         else:
             targets = examples['smiles']
             
@@ -139,6 +143,8 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
         parser.add_argument("--cot_mode_con_ring_name", action='store_true')
+        parser.add_argument("--cot_mode_scaffold", action='store_true')
+        parser.add_argument("--cot_mode_functional_group", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)
@@ -265,10 +271,11 @@ class WandbPredictionProgressCallback(WandbCallback):
 
             if self.base_arch == 'biot5':
                 # selfies to smiles
-                gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
-                gt_smiles = [selfies_to_smiles(sf) for sf in gt_selfies]
-                predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
-                                      
+                # gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
+                gt_selfies = decoded_labels
+                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in gt_selfies]
+                # predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
+                predicted_selfies = decoded_preds
                 predicted_selfies = [dp.replace(" ", "") for dp in predicted_selfies]
                 predicted_smiles = [selfies_to_smiles(sf) for sf in predicted_selfies]
             else:
