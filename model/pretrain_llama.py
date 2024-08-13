@@ -94,7 +94,7 @@ class PreTrainLlama(FineTuneTranslatorLlama):
         return dataset
 
     
-    def preprocess_function(self, examples):
+    def preprocess_function(self, examples, split):
         inputs = examples['smiles']
         inputs = [input_ + self.tokenizer.eos_token for input_ in inputs]
         examples['text'] = inputs
