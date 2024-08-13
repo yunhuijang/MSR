@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-large-ring
+#SBATCH -J ft-large-arom
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
