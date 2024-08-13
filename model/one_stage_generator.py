@@ -32,24 +32,31 @@ class FineTuneTranslator(pl.LightningModule):
         super(FineTuneTranslator, self).__init__()
         hparams = argparse.Namespace(**hparams) if isinstance(hparams, dict) else hparams
         self.save_hyperparameters(hparams)
+        self.base_arch = self.hparams.architecture.split('-')[0]
         self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
     
     def load_dataset(self, split):
         # <FIX> Need to be fixed when CoT added
-        smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
-        smiles_pair_list = [
-        [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
-        # if self.hparams.test:
-        #     smiles_pair_list = smiles_pair_list[:20]
-        description_list = [pair[2] for pair in smiles_pair_list]
-        gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-        id_list = [pair[0] for pair in smiles_pair_list]
+        if self.base_arch == 'biot5':
+            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+                data = json.load(f)
+            description_list = [d['input'] for d in data['Instances']]
+            gt_smiles_list = [d['output'][0] for d in data['Instances']]
+            id_list = [d['id'] for d in data['Instances']]
+        else:
+            smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+            smiles_pair_list = [
+            [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+            ][1:]
+            # if self.hparams.test:
+            #     smiles_pair_list = smiles_pair_list[:20]
+            description_list = [pair[2] for pair in smiles_pair_list]
+            gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+            id_list = [pair[0] for pair in smiles_pair_list]
         
         data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
-        # cot_list = ["" for _ in range(len(gt_smiles_list))]
         if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
             multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
             data_dict['cot_multiset'] = multiset_cot_list
@@ -112,17 +119,18 @@ class FineTuneTranslator(pl.LightningModule):
 
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            # task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
 
-            # inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
+            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
             
-            # convert to selfies
-            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
-                data = json.load(f)
-            targets = [d['output'][0] for d in data['Instances']]
-            # targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
-        else:
-            targets = examples['smiles']
+        #     # convert to selfies
+        #     # TODO: fix length (26407 -> 1000 batch)
+        #     with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+        #         data = json.load(f)
+        #     targets = [d['output'][0] for d in data['Instances']]
+            targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
+        # else:
+        targets = examples['smiles']
             
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
@@ -271,11 +279,11 @@ class WandbPredictionProgressCallback(WandbCallback):
 
             if self.base_arch == 'biot5':
                 # selfies to smiles
-                # gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
-                gt_selfies = decoded_labels
+                gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
+                # gt_selfies = decoded_labels
                 gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in gt_selfies]
-                # predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
-                predicted_selfies = decoded_preds
+                predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
+                # predicted_selfies = decoded_preds
                 predicted_selfies = [dp.replace(" ", "") for dp in predicted_selfies]
                 predicted_smiles = [selfies_to_smiles(sf) for sf in predicted_selfies]
             else:
