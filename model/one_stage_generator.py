@@ -116,7 +116,7 @@ class FineTuneTranslator(pl.LightningModule):
     def preprocess_function(self, examples, split):
         inputs = examples["description"]
         cot_mode = map_cot_mode(self.hparams)
-
+        targets = examples['smiles']
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
             task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
@@ -130,7 +130,7 @@ class FineTuneTranslator(pl.LightningModule):
         #     targets = [d['output'][0] for d in data['Instances']]
             targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
         # else:
-        targets = examples['smiles']
+        
             
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
