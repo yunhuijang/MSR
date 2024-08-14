@@ -27,7 +27,8 @@ srun python model/one_stage_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei
+--model_id QizhiPei \
+--run_id bh29l5sd
 
 
 
