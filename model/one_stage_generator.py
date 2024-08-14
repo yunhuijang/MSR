@@ -210,14 +210,16 @@ class WandbPredictionProgressCallback(WandbCallback):
             num_cot = len(cot_mode.split('-'))-1
             if self.base_arch == 'biot5':
                 gt_cots = [".".join(dl.split('.')[:num_cot]) + '.' for dl in decoded_labels]
+                predicted_cots = [".".join(dp.split('.')[:num_cot]) + '.' for dp in decoded_preds]
+
+            elif self.base_arch == 'llama':
+                # they are already CoT preprocessed
+                gt_cots = decoded_labels
+                predicted_cots = decoded_preds
             else:
                 gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-            if self.base_arch == 'llama':
-                predicted_cots = [dp[:dp.find("The SMILES of the molecule is: ")].split('.')[-2][1:]+'.' if (dp.find("Then, ") > -1) and (dp.find("The SMILES of the molecule is: ")>-1) else " " for dp in decoded_preds]
-            elif self.base_arch == 'biot5':
-                predicted_cots = [".".join(dp.split('.')[:num_cot]) + '.' for dp in decoded_preds]
-            else:   
                 predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
+
             # replacer = {self.tokenizer.eos_token: "", self.tokenizer.bos_token:""}
             if (self.tokenizer.eos_token != None) and (self.tokenizer.bos_token != None):
                 predicted_cots = [cot.replace(self.tokenizer.eos_token, "").replace(self.tokenizer.bos_token, "") for cot in predicted_cots]

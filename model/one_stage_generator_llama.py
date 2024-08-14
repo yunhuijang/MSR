@@ -144,10 +144,10 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         cot_list = add_cot_to_target(examples, cot_list, cot_mode)
         
         if cot_list[0] == "":
-            inputs = [f"{text} The SMILES of the molecule is: {smiles}. {self.tokenizer.eos_token}" for text, smiles in zip(inputs, targets)]
+            inputs = [f"{text} The SMILES of the molecule following the description is: {smiles}. {self.tokenizer.eos_token}" for text, smiles in zip(inputs, targets)]
         else:
             cot_list =  [cot[1].lower() + cot[2:] for cot in cot_list]
-            inputs = [f"{text} Then, {cot} The SMILES of the molecule is: {smiles}. {self.tokenizer.eos_token}" for text, cot, smiles in zip(inputs, cot_list, targets)]
+            inputs = [f"{text} Then, {cot} The SMILES of the molecule following the description is: {smiles}. {self.tokenizer.eos_token}" for text, cot, smiles in zip(inputs, cot_list, targets)]
         examples['text'] = inputs
         
         return examples
@@ -162,13 +162,16 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument("--cot_mode_chain", action='store_true')
         parser.add_argument("--cot_mode_ring_name", action='store_true')
         parser.add_argument("--cot_mode_iupac", action='store_true')
+        parser.add_argument("--cot_mode_con_ring_name", action='store_true')
+        parser.add_argument("--cot_mode_scaffold", action='store_true')
+        parser.add_argument("--cot_mode_functional_group", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=2)
         parser.add_argument("--eval_batch_size", type=int, default=4)
         parser.add_argument("--gen_batch_size", type=int, default=32)
         parser.add_argument("--weight_decay", type=float, default=0.01)
-        parser.add_argument("--epochs", type=int, default=10)
+        parser.add_argument("--epochs", type=int, default=200)
         # parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=512)
@@ -192,7 +195,7 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
             
             run_name = map_cot_mode(self.hparams)
             if run_name == "":
-                input_prompt = [f"{des} The SMILES of the molecule is: " for des in self.test_dataset['description']]
+                input_prompt = [f"{des} The SMILES of the molecule following the description is: " for des in self.test_dataset['description']]
                 if self.hparams.tag:
                     input_prompt = [f"{des} <SMILES> " for des in input_prompt]
             else:
@@ -219,12 +222,16 @@ class WandbLlamaProgressCallback(WandbPredictionProgressCallback):
             if hparams.tag:
                 predicted_smiles = [dp[dp.find("<SMILES> "):].split(' ')[0][len("<SMILES> "):] if (dp.find("<SMILES>") > -1) else " " for dp in decoded_preds]
             else:
-                predicted_smiles = [dp[dp.find("The SMILES of the molecule is: "):].split('.')[0][len("The SMILES of the molecule is: "):] if dp.find("The SMILES of the molecule is:") > -1 else " " for dp in decoded_preds]
+                predicted_smiles = [dp[dp.find("The SMILES of the molecule following the description is: "):].split('.')[0][len("The SMILES of the molecule following the description is: "):] if dp.find("The SMILES of the molecule following the description is:") > -1 else " " for dp in decoded_preds]
             predicted_smiles = [smi[:smi.find('</SMILES>')] if smi.find('</SMILES>') > -1 else smi for smi in predicted_smiles]
             predicted_smiles = [smi if len(smi)>0 else " " for smi in predicted_smiles]
             predicted_smiles = [smi.replace(" ", "") for smi in predicted_smiles]
-            
-            decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule is: ")+len(self.tokenizer.eos_token))-3]for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)][0]
+            num_cot = len(run_name.split('-'))-1
+
+            # decoded_labels = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule following the description is: ")+len(self.tokenizer.eos_token))-3]for text, desc, smi in zip(self.test_dataset['text'], description_list, gt_smiles)][0]
+            decoded_labels = [".".join(dp[dp.find("Then,")+len("Then,"):].split('.')[:num_cot]).strip() for dp in self.test_dataset['text']]      
+            decoded_preds = [".".join(dp[dp.find("Then,")+len("Then,"):].split('.')[:num_cot]).strip() for dp in decoded_preds]
+            # decoded_preds = [text[len(desc)+1:-(len(smi)+len("The SMILES of the molecule following the description is: ")+len(self.tokenizer.eos_token))-3]for text, desc, smi in zip(decoded_preds, description_list, predicted_smiles)][0]
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
             
 
