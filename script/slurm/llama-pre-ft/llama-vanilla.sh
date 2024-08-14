@@ -30,7 +30,7 @@ srun python model/one_stage_generator_llama.py \
 --epochs 100 \
 --max_length 512 \
 --pretrain_model_id 1azi0wgu \
---check_val_every_n_epoch 1 \
---run_id 4l06qgjj
+--check_val_every_n_epoch 1
+
 
 
