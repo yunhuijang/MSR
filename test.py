@@ -1,156 +1,48 @@
+import json
 import os
 from pathlib import Path
-from transformers import T5Tokenizer, T5ForConditionalGeneration
+import selfies
+from rdkit import Chem
+from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmilesFromSmiles, GetScaffoldForMol 
+from util_cot import smiles_to_iupac, canonicalize
+from generate_iupac import generate_molecule_iupac
 from tqdm import tqdm
-import argparse
-import wandb
-from os.path import join
+from rdkit.Chem import rdFMCS
+from util_cot import map_scaffold_cot, map_functional_group_cot
+from os import listdir
+from shutil import rmtree
+# with open('ChEBI-20_data/task1_chebi20_text2mol_train.json', 'r') as f:
+#     data = json.load(f)
+# description_list_json = [d['input'] for d in data['Instances']]
+# selfies_list_json = [d['output'] for d in data['Instances']]
 
-from util import map_ring_token, map_multiset_token
-from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-
-os.environ["WANDB__SERVICE_WAIT"] = "300"
-
-def predict_with_cot(hparams):
-    architecture = hparams.architecture
-    cot_mode_multiset = hparams.cot_mode_multiset
-    cot_mode_ring = hparams.cot_mode_ring
-    cot_mode_fragment = hparams.cot_mode_fragment
-    split = hparams.split
-    batch_size_generate = hparams.batch_size_generate
-    task = hparams.finetune_task
-
-    tokenizer = T5Tokenizer.from_pretrained(f"laituan245/{architecture}{task}", model_max_length=512)
-    model = T5ForConditionalGeneration.from_pretrained(f'laituan245/{architecture}{task}')
-    
-    device = 'cuda:0'
-    model.to(device)
-    
-    if split == 'test':
-        if task == "":
-            smiles_list_path = os.path.join('predictions', f"{architecture}-caption2smiles.txt")
-        else:
-            smiles_list_path = os.path.join('predictions', f"{architecture}{task}.txt")
-        smiles_pair_list = [
-        [" ".join(pair.split()[:-2]), pair.split()[-2], pair.split()[-1]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:]
-        description_list = [pair[0] for pair in smiles_pair_list]
-        gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-
-    elif split == 'train':
-        smiles_list_path = os.path.join('ChEBI-20_data', 'train.txt')
-        smiles_pair_list = [
-        [" ".join(pair.split()[0]), pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-        ][1:][:3301] # 3301
-        description_list = [pair[2] for pair in smiles_pair_list]
-        gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-    
-    
-    ring_cot_list = map_ring_token(gt_smiles_list)
-    multiset_cot_list = map_multiset_token(gt_smiles_list, mode=cot_mode_multiset)
-    
-
-    run_name = ""
-    if cot_mode_multiset in ['simple', 'full']:
-        run_name += f'-multiset_{cot_mode_multiset}'
-    if cot_mode_ring:
-        run_name += '-ring'
-    if cot_mode_fragment:
-        run_name += '-frag'
+# total_smiles_list = []
+# for split in ['test', 'train', 'validation']:
+#     smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+#     smiles_pair_list = [
+#     [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+#     ][1:][:50]
+#     smiles_list = [pair[1] for pair in smiles_pair_list]
+#     total_smiles_list.extend(smiles_list)
 
 
-    prediction_list= []
-    
-    for index in tqdm(range(len(prediction_list), len(description_list), batch_size_generate)):
-        input_text = description_list[index:index+batch_size_generate]
-        if cot_mode_ring:
-            input_text = [it+rc for it, rc in zip(input_text, ring_cot_list[index:index+batch_size_generate])]
-        if cot_mode_multiset in ['simple', 'full']:
-            input_text = [it+rc for it, rc in zip(input_text, multiset_cot_list[index:index+batch_size_generate])]
-        input_ids = tokenizer(input_text, return_tensors="pt", padding=True).input_ids
-        outputs = model.generate(input_ids.to(device), num_beams=5, max_length=512)
-        prediction = [tokenizer.decode(output, skip_special_tokens=True) for output in outputs]
-        prediction_list.extend(prediction)
+# total_smiles_list = ['CN\\1C2=CC=CC=C2O/C1=C\\C3=CC=[N+](C4=CC=CC=C34)CCC[N+](C)(C)C']
 
-    if split == 'test':
-        file_name = f'predictions/cot/{architecture}{task}{run_name}'
-        
-    elif split == 'train':
-        file_name = f'predictions/cot/{architecture}{task}{run_name}-{split}'
-    
-    with open(f'{file_name}.txt', 'w') as f:
-        f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
-        for desc, rt, ot in zip(description_list, gt_smiles_list, prediction_list):
-            f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
-    return prediction_list
+# for i, mol in enumerate(mols):
+#     try:
+#         selfies.encoder(Chem.MolToSmiles(mol))
+#     except:
+#         print(i)
+#         print(Chem.MolToSmiles(mol))
+# sfs = [selfies.encoder(Chem.MolToSmiles(mol)) for mol in mols]
+# data['instances']
+print('hi')
 
-def evaluate(architecture, task, run_name, split='test'):
-    if split == 'test':
-        file_name = f'{architecture}{task}{run_name}.txt'
-        
-    elif split == 'train':
-        file_name = f'{architecture}{task}{run_name}-{split}.txt'
-    # file_name = f'{architecture}-{task}{run_name}.txt'
-    file_path = join('predictions', 'cot', file_name)
-    
-    smiles_list_path = os.path.join(file_path)
-    smiles_pair_list = [
-    [" ".join(pair.split()[:-2]), pair.split()[-2], pair.split()[-1]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-    ][1:]
-    # description_list = [pair[0] for pair in smiles_pair_list]
-    # gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-    # output_list = [pair[2] for pair in smiles_pair_list]
-    
-    table = wandb.Table(data=smiles_pair_list,
-                        columns=['description', 'gt_smiles', 'predicted_smiles'])
-    
-    wandb.log({f"Prediction": table})
-    
-    bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_path)
-    validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_path, 2)
-    fcd_metric_score = fcd_metric.evaluate(file_path)
-    # wandb.log(f'For {file_name}\n')
-    wandb.log({"BLEU": round(bleu_score, 3), "Exact": round(exact_match_score, 3),
-               "Levenshtein": round(levenshtein_score, 3), "MACCS FTS": round(maccs_sims_score, 3),
-                "RDK FTS": round(rdk_sims_score, 3), "Morgan FTS": round(morgan_sims_score, 3),
-                "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
-               })
-
-@staticmethod
-def add_args(parser):
-    parser.add_argument("--architecture", type=str, default='molt5-small')
-    parser.add_argument("--cot_mode_multiset", type=str, default='')
-    parser.add_argument("--cot_mode_fragment", action='store_true')
-    parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--wandb_mode", type=str, default='online')
-    parser.add_argument("--split", type=str, default='train')
-    parser.add_argument("--batch_size_generate", type=int, default=16)
-    parser.add_argument("--finetune_task", type=str, default='-caption2smiles')
-
-
-    return parser
-
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    add_args(parser)
-    hparams = parser.parse_args()
-    run_name = ""
-    if hparams.cot_mode_multiset in ['simple', 'full']:
-        run_name += f'-multiset({hparams.cot_mode_multiset})'
-    if hparams.cot_mode_ring:
-        run_name += '-ring'
-    if hparams.cot_mode_fragment:
-        run_name += '-frag'
-    wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}', mode=hparams.wandb_mode)
-    wandb.config.update(hparams)
-    
-    predict_with_cot(hparams)
-    
-    evaluate(hparams.architecture, hparams.finetune_task, run_name, hparams.split)
-    
-    wandb.finish()
-    
+dir_list = listdir('output')
+for dir in dir_list:
+    file_path = sorted([dI for dI in os.listdir(f'output/{dir}') if os.path.isdir(os.path.join(f'output/{dir}',dI))])
+    if len(file_path) == 0:
+        rmtree(f'output/{dir}')
+    elif len(file_path) > 2:
+       rmtree(f'output/{dir}/{file_path[1]}')
     
