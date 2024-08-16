@@ -17,7 +17,7 @@ import json
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot, map_connected_ring_name_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot, map_connected_ring_name_cot, map_functional_group_cot
 from util import selfies_to_smiles
 
 class FineTuneAnswer(FineTuneTranslator):
@@ -80,6 +80,10 @@ class FineTuneAnswer(FineTuneTranslator):
             if self.hparams.cot_mode_con_ring_name:
                 ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
                 data_dict['cot_connected_ring_name'] = ring_name_cot_list
+                
+            if self.hparams.cot_mode_functional_group:
+                fg_cot_list = map_functional_group_cot(gt_smiles_list)
+                data_dict['cot_functional_group'] = fg_cot_list
             
             cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
             data_dict['cot'] = cot_list
