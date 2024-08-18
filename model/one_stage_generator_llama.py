@@ -178,7 +178,7 @@ class FineTuneTranslatorLlama(FineTuneTranslator):
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
         parser.add_argument('--tag', action='store_true')
-        parser.add_argument('--pretrain_model_id', type=str, default='1azi0wgu')
+        parser.add_argument('--pretrain_model_id', type=str, default='')
 
         return parser
 
