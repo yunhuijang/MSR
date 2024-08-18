@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-llama
+#SBATCH -J ft-llama-cring
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -23,13 +23,14 @@ nvidia-smi
 srun python model/one_stage_generator_llama.py \
 --architecture llama \
 --cot_mode_multiset None \
+--cot_mode_con_ring_name \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 4 \
+--eval_batch_size 4 \
 --gen_batch_size 8 \
---epochs 250 \
---max_length 1688 \
---run_id ysmjv0a2
+--epochs 100 \
+--max_length 512 \
+--check_val_every_n_epoch 1
 
 
 

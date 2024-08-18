@@ -28,7 +28,7 @@ srun python model/one_stage_generator_llama.py \
 --train_batch_size 4 \
 --eval_batch_size 4 \
 --gen_batch_size 32 \
---epochs 3 \
+--epochs 250 \
 --max_length 512 \
 --run_id 0q8vv7pn
 

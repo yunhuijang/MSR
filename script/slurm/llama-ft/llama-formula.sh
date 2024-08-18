@@ -24,11 +24,10 @@ srun python model/one_stage_generator_llama.py \
 --architecture llama \
 --cot_mode_multiset formula \
 --wandb_mode online \
---train_batch_size 2 \
+--train_batch_size 4 \
 --eval_batch_size 4 \
---gen_batch_size 32 \
---epochs 30 \
+--gen_batch_size 8 \
+--epochs 250 \
 --max_length 512
-
 
 
