@@ -23,7 +23,7 @@ import selfies
 import json
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot, add_cot_to_text
 from analysis import compute_cot_accuracy
 from util import selfies_to_smiles
 
@@ -33,12 +33,15 @@ class FineTuneTranslator(pl.LightningModule):
         hparams = argparse.Namespace(**hparams) if isinstance(hparams, dict) else hparams
         self.save_hyperparameters(hparams)
         self.base_arch = self.hparams.architecture.split('-')[0]
+        self.run_name = map_cot_mode(hparams)
         self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
+        
     
     def load_dataset(self, split):
         # <FIX> Need to be fixed when CoT added
+        
         if self.base_arch == 'biot5':
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
@@ -99,6 +102,10 @@ class FineTuneTranslator(pl.LightningModule):
             fg_cot_list = map_functional_group_cot(gt_smiles_list)
             data_dict['cot_functional_group'] = fg_cot_list
         
+        
+        cot_list = ["" for _ in range(len(gt_smiles_list))]
+        cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
+        data_dict['cot'] = cot_list[:len(gt_smiles_list)]
         dataset = Dataset.from_dict(data_dict)
         
         
@@ -140,7 +147,7 @@ class FineTuneTranslator(pl.LightningModule):
             
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
-        targets = add_cot_to_target(examples, targets, cot_mode)
+        targets = add_cot_to_text(examples, targets, 'forward')
         
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs

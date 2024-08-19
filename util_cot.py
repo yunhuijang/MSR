@@ -482,3 +482,13 @@ def add_cot_to_target(examples, targets, cot_mode):
         targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
     
     return targets
+
+def add_cot_to_text(eaxmples, targets, direction='forward'):
+    # direction: forward (caption2smiles), backward (smiles2caption)
+    if direction == 'forward':
+        targets = [f"{cot}{target}" for target, cot in zip(targets, eaxmples['cot'])]
+    else:
+        targets = [f"{target}{cot}" for target, cot in zip(targets, eaxmples['cot'])]
+    return targets
+    
+    
