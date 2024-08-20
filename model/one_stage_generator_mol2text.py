@@ -163,10 +163,10 @@ if __name__ == "__main__":
     
 
     if hparams.run_id == '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(
@@ -177,7 +177,7 @@ if __name__ == "__main__":
         per_device_train_batch_size=hparams.train_batch_size,
         per_device_eval_batch_size=hparams.eval_batch_size,
         weight_decay=hparams.weight_decay,
-        save_total_limit=3,
+        save_total_limit=2,
         num_train_epochs=hparams.epochs,
         predict_with_generate=True,
         fp16=False,
