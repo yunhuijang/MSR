@@ -23,7 +23,7 @@ nvidia-smi
 srun python model/one_stage_generator_mol2text.py \
 --architecture molt5-large \
 --cot_mode_multiset None \
---cot_mode_chain
+--cot_mode_chain \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
