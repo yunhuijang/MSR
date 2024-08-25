@@ -29,7 +29,7 @@ srun python model/answer_generator.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei \
---run_id vld2pxky
+--run_id u5t7ogdz
 
 
 
