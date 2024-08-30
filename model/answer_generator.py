@@ -276,7 +276,10 @@ if __name__ == "__main__":
     if hparams.run_id == '':
         trainer.train()
     else:
-        file_path = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])[-1]
+        directories = sorted([dI for dI in os.listdir(f'output/{hparams.run_id}') if os.path.isdir(os.path.join(f'output/{hparams.run_id}',dI))])
+        last_index = sorted([int(i.split('-')[1]) for i in directories])[-1]
+        file_path = f"checkpoint-{last_index}"
+
         # need to check
         # trainer._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
