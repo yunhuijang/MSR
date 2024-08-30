@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-biolarge
+#SBATCH -J ft-biolarge-m2t
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -20,15 +20,14 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator.py \
+srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-large \
 --cot_mode_multiset None \
 --wandb_mode online \
---train_batch_size 8 \
+--train_batch_size 512 \
 --eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei \
---run_id ct1l6zew
+--model_id QizhiPei
 
 
 
