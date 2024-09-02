@@ -24,7 +24,7 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-large \
 --cot_mode_multiset None \
 --wandb_mode online \
---train_batch_size 512 \
+--train_batch_size 32 \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei
