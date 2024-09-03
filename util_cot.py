@@ -166,7 +166,7 @@ def map_aromatic_ring_cot(smiles_list):
 def map_carbon_chain_length(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     carbon_mol = Chem.MolFromSmiles('C'*100)
-    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts for mol in mols]
+    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mols]
     carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
     cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
     
@@ -354,7 +354,7 @@ def get_connected_ring_name(ri, mol, ring_name_dict):
             ring_mol = Chem.MolFromSmiles(smi)
             # (Connected) Ring molecule is not available
             if ring_mol is None:
-                print(Chem.MolToSmiles(mol))
+                # print(Chem.MolToSmiles(mol))
                 final_result.append(f"unknown {ring_type}")
                 continue
             # Cannot map IUPAC name for the ring substructure -> try to decompose the ring further
@@ -369,8 +369,8 @@ def get_connected_ring_name(ri, mol, ring_name_dict):
     return final_result
 
 def map_connected_ring_name_cot(smiles_list):
-    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
-    ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
+    mols = [Chem.MolFromSmiles(s) if type(s) == str else None for s in smiles_list]
+    ring_info = [mol.GetRingInfo().AtomRings() if mol is not None else "" for mol in mols]
     with open('resource/data/total_ring_to_iupac.json', 'r') as fp:
         ring_name_dict = json.load(fp)
     ring_connectivity = [get_connected_ring_name(ri, mol, ring_name_dict) for ri, mol in zip(tqdm(ring_info), mols)]
@@ -423,8 +423,10 @@ def map_cot_mode(hparams):
     cot_mode_con_ring_name = hparams.cot_mode_con_ring_name
     cot_mode_scaffold = hparams.cot_mode_scaffold
     cot_mode_functional_group = hparams.cot_mode_functional_group
-    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, connected_ring_name, iupac
+    # CoT order: scaffold, chain, fragment, ring, multiset, aromatic, function, ring_name, connected ring name, iupac
     cot_mode = ""
+    if cot_mode_scaffold:
+        cot_mode += '-scaffold'
     if cot_mode_chain:
         cot_mode += '-chain'
     if cot_mode_fragment:
@@ -435,21 +437,19 @@ def map_cot_mode(hparams):
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
+    if cot_mode_functional_group:
+        cot_mode += '-fg'
     if cot_mode_ring_name:
         cot_mode += '-rname'
     if cot_mode_con_ring_name:
         cot_mode += '-conrna'
     if cot_mode_iupac:
         cot_mode += '-iupac'
-    if cot_mode_scaffold:
-        cot_mode += '-scaffold'
-    if cot_mode_functional_group:
-        cot_mode += '-fg'
     
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: chain, fragment, ring, multiset, aromatic, ring_name, iupac
+    # CoT order: scaffold, chain, fragment, ring, multiset, aromatic, function, ring_name, connected ring name, iupac
     # <FIX> Need to be fixed when CoT added
     if 'iupac' in cot_mode:
         targets = [f"{cot_iupac}{target}" for target, cot_iupac in zip(targets, examples['cot_iupac'])]
@@ -459,6 +459,9 @@ def add_cot_to_target(examples, targets, cot_mode):
     
     if 'rname' in cot_mode:
         targets = [f"{cot_ring_name}{target}" for target, cot_ring_name in zip(targets, examples['cot_ring_name'])]
+    
+    if 'fg' in cot_mode:
+        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
     
     if 'arom' in cot_mode:
         targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
@@ -478,9 +481,6 @@ def add_cot_to_target(examples, targets, cot_mode):
     if 'scaffold' in cot_mode:
         targets = [f"{cot_scaffold}{target}" for target, cot_scaffold in zip(targets, examples['cot_scaffold'])]
         
-    if 'fg' in cot_mode:
-        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
-    
     return targets
 
 def add_cot_to_text(eaxmples, targets, direction='forward'):
@@ -491,4 +491,46 @@ def add_cot_to_text(eaxmples, targets, direction='forward'):
         targets = [f"{target}{cot}" for target, cot in zip(targets, eaxmples['cot'])]
     return targets
     
+def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
+    run_name = map_cot_mode(hparams)
+    cot_list = ["" for _ in range(len(smiles_list))]
+    if hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
+        multiset_cot_list = map_multiset_cot(smiles_list, mode=hparams.cot_mode_multiset)
+        data_dict['cot_multiset'] = multiset_cot_list
     
+    if hparams.cot_mode_ring:
+        ring_cot_list = map_ring_cot(smiles_list)
+        data_dict['cot_ring'] = ring_cot_list
+        
+    if hparams.cot_mode_fragment:
+        fragment_cot_list = map_fragment_cot(split)
+        data_dict['cot_fragment'] = fragment_cot_list
+        
+    if hparams.cot_mode_aromatic:
+        aromatic_cot_list = map_aromatic_ring_cot(smiles_list)
+        data_dict['cot_aromatic'] = aromatic_cot_list
+        
+    if hparams.cot_mode_chain:
+        chain_cot_list = map_carbon_chain_length(smiles_list)
+        data_dict['cot_chain'] = chain_cot_list
+    
+    if hparams.cot_mode_ring_name:
+        ring_name_cot_list = map_ring_name_cot(smiles_list)
+        data_dict['cot_ring_name'] = ring_name_cot_list
+    
+    if hparams.cot_mode_iupac:
+        iupac_cot_list = map_iupac_cot(smiles_list)
+        data_dict['cot_iupac'] = iupac_cot_list
+        
+    if hparams.cot_mode_con_ring_name:
+        ring_name_cot_list = map_connected_ring_name_cot(smiles_list)
+        data_dict['cot_connected_ring_name'] = ring_name_cot_list
+        
+    if hparams.cot_mode_functional_group:
+        fg_cot_list = map_functional_group_cot(smiles_list)
+        data_dict['cot_functional_group'] = fg_cot_list
+    
+    cot_list = add_cot_to_target(data_dict, cot_list, run_name)
+    data_dict['cot'] = cot_list
+    
+    return data_dict
