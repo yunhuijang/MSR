@@ -13,7 +13,7 @@ import re
 from itertools import compress
 import logging
 
-from util_cot import map_ring_cot, map_multiset_cot
+from util_cot import *
 from tokens import tokenize, NODE_TOKENS, BOND_TOKENS
 import torch
 from torch.nn.utils.rnn import pad_sequence
@@ -283,32 +283,19 @@ def compute_cot_alignment_smiles(predicted_cot_list, predicted_smiles_list, cot_
     Compare the predicted CoT and predicted SMILES if it aligns or not
     '''
     
-    ring_cot_list = map_ring_cot(predicted_smiles_list)
-    ring_cot_list = [ring_cot[1:] for ring_cot in ring_cot_list]
-    multiset_cot_list = map_multiset_cot(predicted_smiles_list)
-    multiset_cot_list = [mul_cot[1:] for mul_cot in multiset_cot_list]
-    
-    ring_correct_list = []
-    multiset_correct_list = []
-    
-    if len(cot_mode.split('-')) > 1:
-        predicted_cot_list_ring = [pred.split('-')[0] for pred in predicted_cot_list]
-        predicted_cot_list_multiset = [pred.split('-')[1] for pred in predicted_cot_list]
-    else:
-        predicted_cot_list_ring = predicted_cot_list
-        predicted_cot_list_multiset = predicted_cot_list
-    
-    if 'ring' in cot_mode:
-        ring_correct_list = [gt == pred for gt, pred in zip(ring_cot_list, predicted_cot_list_ring)]
-        ring_accuracy = sum(ring_correct_list)/len(ring_cot_list)
-        print(f"Ring alignment with CoT: {ring_accuracy}")
-        
-    elif ('simple' in cot_mode) or ('full' in cot_mode):
-        multiset_correct_list = [gt == pred for gt, pred in zip(multiset_cot_list, predicted_cot_list_multiset)]
-        multiset_accuracy = sum(multiset_correct_list)/len(multiset_cot_list)
-        print(f"Multiset alignment with CoT: {multiset_accuracy}")
+    function_map_dict = {'ring': map_ring_cot, 'simple': map_multiset_cot, 'full': map_multiset_cot,
+                        'form': map_multiset_cot, 'only_type': map_multiset_cot, 'arom': map_aromatic_ring_cot,
+                        'chain': map_carbon_chain_length, 'iupac': map_iupac_cot, 'rname': map_ring_name_cot,
+                        'conrna': map_connected_ring_name_cot, 'scaffold': map_scaffold_cot, 'fg': map_functional_group_cot}
+    func = function_map_dict[cot_mode]
+    gt_cot_list = func(predicted_smiles_list)
+    gt_cot_list = [gt_cot[1:] for gt_cot in gt_cot_list]
+    # gt_cot_list = [gt_cot[1:] for gt_cot in gt_cot_list]
+    correct_list = [gt == pred for gt, pred in zip(gt_cot_list, predicted_cot_list)]
+    print(f"Accuracy: {sum(correct_list)/len(gt_cot_list)}")
 
-    return ring_correct_list, multiset_correct_list
+
+    return correct_list
     
 def get_confusion_matrix(cot_correct_list, align_correct_list):
     '''

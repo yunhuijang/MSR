@@ -10,14 +10,12 @@ os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
 from datasets import Dataset
-import selfies
-from rdkit import Chem
 import json
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_iupac_cot, map_ring_name_cot, map_connected_ring_name_cot, map_functional_group_cot
+from util_cot import map_cot_mode, map_cot_to_smiles_list
 from util import selfies_to_smiles
 
 class FineTuneAnswer(FineTuneTranslator):
@@ -48,45 +46,7 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
             
         if split in ['train', 'validation']:
-            cot_list = ["" for _ in range(len(gt_smiles_list))]
-            if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
-                multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
-                data_dict['cot_multiset'] = multiset_cot_list
-            
-            if self.hparams.cot_mode_ring:
-                ring_cot_list = map_ring_cot(gt_smiles_list)
-                data_dict['cot_ring'] = ring_cot_list
-                
-            if self.hparams.cot_mode_fragment:
-                fragment_cot_list = map_fragment_cot(split)
-                data_dict['cot_fragment'] = fragment_cot_list
-                
-            if self.hparams.cot_mode_aromatic:
-                aromatic_cot_list = map_aromatic_ring_cot(gt_smiles_list)
-                data_dict['cot_aromatic'] = aromatic_cot_list
-                
-            if self.hparams.cot_mode_chain:
-                chain_cot_list = map_carbon_chain_length(gt_smiles_list)
-                data_dict['cot_chain'] = chain_cot_list
-            
-            if self.hparams.cot_mode_ring_name:
-                ring_name_cot_list = map_ring_name_cot(gt_smiles_list)
-                data_dict['cot_ring_name'] = ring_name_cot_list
-            
-            if self.hparams.cot_mode_iupac:
-                iupac_cot_list = map_iupac_cot(gt_smiles_list)
-                data_dict['cot_iupac'] = iupac_cot_list
-                
-            if self.hparams.cot_mode_con_ring_name:
-                ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
-                data_dict['cot_connected_ring_name'] = ring_name_cot_list
-                
-            if self.hparams.cot_mode_functional_group:
-                fg_cot_list = map_functional_group_cot(gt_smiles_list)
-                data_dict['cot_functional_group'] = fg_cot_list
-            
-            cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
-            data_dict['cot'] = cot_list
+            data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
             file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
@@ -120,7 +80,7 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
@@ -143,7 +103,10 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        # cot correction iteration
+        parser.add_argument('--is_iterative', action='store_true')
+        parser.add_argument('--num_iter', type=int, default=5)
 
 
         return parser
@@ -158,28 +121,30 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start Answer Evaluation")
             # generate predictions
-            predictions = self.trainer.predict(self.test_dataset)
-            preds, labels = predictions.predictions, predictions.label_ids
+            generation_index = range(len(self.test_dataset))
+            gt_smiles, predicted_smiles = self.generaate_samples(generation_index)
             
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
-
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-            decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
-
+            if self.hparams.is_iterative and state.epoch > 10:
+                num_iter = 0
+                cot_list = self.test_dataset['cot']
+                while((num_iter < self.hparams.num_iter) or (len(generation_index) == 0)):
+                    data_dict = {'smiles': predicted_smiles}
+                    data_dict = map_cot_to_smiles_list(predicted_smiles, self.hparams, data_dict, 'test')
+                    generation_index_bool = [pred_info != true_info for pred_info, true_info in zip(data_dict['cot'], cot_list)]
+                    generation_index = [i for i, x in enumerate(generation_index_bool) if x]
+                    _, new_predicted_smiles = self.generaate_samples(generation_index)
+                    final_predicted_smiles = []
+                    for index, gi_bool in enumerate(generation_index_bool):
+                        # matching CoT -> keep the predicted smiles
+                        if not gi_bool:
+                            final_predicted_smiles.append(predicted_smiles[index])
+                        # not matching CoT -> replace with new predicted smiles
+                        else:
+                            final_predicted_smiles.append(new_predicted_smiles.pop(0))
+                    predicted_smiles = final_predicted_smiles
+                    
             file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
-            
-            if self.base_arch == 'biot5':
-                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
-                predicted_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_preds]
-            else:
-                gt_smiles = decoded_labels
-                predicted_smiles = decoded_preds
             
             with open(f'{file_name}', 'w') as f:
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
@@ -187,8 +152,6 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
             
             columns = ['description', 'gt_smiles', 'predicted_smiles']
-            # gt_cots = [" ".join(dl.split(' ')[:-1]) for dl in decoded_labels]
-            # predicted_cots = [" ".join(dp.split(' ')[:-1]) for dp in decoded_preds]
             result_data = [description_list, gt_smiles, predicted_smiles]
             
             result_data = list(map(list, zip(*result_data)))
@@ -213,7 +176,29 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     }
             self._wandb.log(result)
             
+    def generaate_samples(self, generation_index):
+        dataset = Dataset.from_dict(self.test_dataset[generation_index])
+        predictions = self.trainer.predict(dataset)
+        preds, labels = predictions.predictions, predictions.label_ids
+        
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
+        labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
+        
+        if self.base_arch == 'biot5':
+            gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
+            predicted_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_preds]
+        else:
+            gt_smiles = decoded_labels
+            predicted_smiles = decoded_preds
+            
+        return gt_smiles, predicted_smiles
         
 
 if __name__ == "__main__":
@@ -256,7 +241,8 @@ if __name__ == "__main__":
         do_train=True,
         generation_max_length=hparams.max_length,
         load_best_model_at_end=True,
-        save_strategy='epoch'
+        save_strategy='epoch',
+        warmup_ratio=0.02
     )
 
     trainer = Seq2SeqTrainer(
