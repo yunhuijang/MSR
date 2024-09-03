@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-biolarge-m2t
+#SBATCH -J ft-biolarge-mul-m2t
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -23,6 +23,10 @@ nvidia-smi
 srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-large \
 --cot_mode_multiset None \
+--cot_mode_aromatic \
+--cot_mode_chain \
+--cot_mode_con_ring_name \
+--cot_mode_functional_group \
 --wandb_mode online \
 --train_batch_size 32 \
 --eval_batch_size 8 \
