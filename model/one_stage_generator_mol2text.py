@@ -34,11 +34,11 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         targets = examples['description']
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+            task_definition = 'Definition: You are given a molecule SELFIES. Your job is to generate the molecule description in English that fits the molecule SELFIES.\n\n'
 
             inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
             
-            targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
+            # targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
         
             
         if cot_mode != "":
@@ -46,12 +46,14 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         # No need for learning CoT
         inputs = add_cot_to_text(examples, inputs, 'backward')
         inputs = [inp.strip() for inp in inputs]
+        if self.hparams.architecture.split('-')[0] == 'biot5':
+            inputs = [inp + "\nOutput: " for inp in inputs]
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
@@ -74,7 +76,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
 
         return parser
 
