@@ -23,7 +23,7 @@ import selfies
 import json
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot, add_cot_to_text
+from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot, add_cot_to_text, map_cot_to_smiles_list
 from analysis import compute_cot_accuracy
 from util import selfies_to_smiles
 
@@ -45,69 +45,23 @@ class FineTuneTranslator(pl.LightningModule):
         if self.base_arch == 'biot5':
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
-            description_list = [d['input'] for d in data['Instances']]
-            gt_selfies_list = [d['output'][0] for d in data['Instances']]
-            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
-            id_list = [d['id'] for d in data['Instances']]
+            description_list = [d['input'] for d in data['Instances']][:100]
+            gt_selfies_list = [d['output'][0] for d in data['Instances']][:100]
+            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list][:100]
+            id_list = [d['id'] for d in data['Instances']][:100]
             data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
         else:
             smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
             smiles_pair_list = [
             [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
             ][1:]
-            # if self.hparams.test:
-            #     smiles_pair_list = smiles_pair_list[:20]
             description_list = [pair[2] for pair in smiles_pair_list]
             gt_smiles_list = [pair[1] for pair in smiles_pair_list]
             id_list = [pair[0] for pair in smiles_pair_list]
             data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
-            
-        if self.hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
-            multiset_cot_list = map_multiset_cot(gt_smiles_list, mode=self.hparams.cot_mode_multiset)
-            data_dict['cot_multiset'] = multiset_cot_list
         
-        if self.hparams.cot_mode_ring:
-            ring_cot_list = map_ring_cot(gt_smiles_list)
-            data_dict['cot_ring'] = ring_cot_list
-            
-        if self.hparams.cot_mode_fragment:
-            fragment_cot_list = map_fragment_cot(split)
-            data_dict['cot_fragment'] = fragment_cot_list
-            
-        if self.hparams.cot_mode_aromatic:
-            aromatic_cot_list = map_aromatic_ring_cot(gt_smiles_list)
-            data_dict['cot_aromatic'] = aromatic_cot_list
-            
-        if self.hparams.cot_mode_chain:
-            carbon_chain_cot_list = map_carbon_chain_length(gt_smiles_list)
-            data_dict['cot_chain'] = carbon_chain_cot_list
-            
-        if self.hparams.cot_mode_ring_name:
-            ring_name_cot_list = map_ring_name_cot(gt_smiles_list)
-            data_dict['cot_ring_name'] = ring_name_cot_list
-            
-        if self.hparams.cot_mode_iupac:
-            iupac_cot_list = map_iupac_cot(gt_smiles_list)
-            data_dict['cot_iupac'] = iupac_cot_list
-        
-        if self.hparams.cot_mode_con_ring_name:
-            ring_name_cot_list = map_connected_ring_name_cot(gt_smiles_list)
-            data_dict['cot_connected_ring_name'] = ring_name_cot_list
-        
-        if self.hparams.cot_mode_scaffold:
-            scaffold_cot_list = map_scaffold_cot(gt_smiles_list)
-            data_dict['cot_scaffold'] = scaffold_cot_list
-            
-        if self.hparams.cot_mode_functional_group:
-            fg_cot_list = map_functional_group_cot(gt_smiles_list)
-            data_dict['cot_functional_group'] = fg_cot_list
-        
-        
-        cot_list = ["" for _ in range(len(gt_smiles_list))]
-        cot_list = add_cot_to_target(data_dict, cot_list, self.run_name)
-        data_dict['cot'] = cot_list[:len(gt_smiles_list)]
+        data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
         dataset = Dataset.from_dict(data_dict)
-        
         
         return dataset
     
@@ -136,25 +90,22 @@ class FineTuneTranslator(pl.LightningModule):
 
             inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
             
-        #     # convert to selfies
-        #     # TODO: fix length (26407 -> 1000 batch)
-        #     with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
-        #         data = json.load(f)
-        #     targets = [d['output'][0] for d in data['Instances']]
-            targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
+            # targets = [f"\nOutput: {target}" for target in targets][:len(inputs)]
         # else:
         
             
         if cot_mode != "":
             targets = [f" {target}" for target in targets]
         targets = add_cot_to_text(examples, targets, 'forward')
-        
+        if self.hparams.architecture.split('-')[0] == 'biot5':
+            targets = [" ".join(target.split(' ')[:-1]) + "\nOutput: "+ target.split(' ')[-1] for target in targets]
+            targets = [target.strip() for target in targets]
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
@@ -168,8 +119,8 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument("--cot_mode_functional_group", action='store_true')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=1)
-        parser.add_argument("--eval_batch_size", type=int, default=1)
+        parser.add_argument("--train_batch_size", type=int, default=2)
+        parser.add_argument("--eval_batch_size", type=int, default=2)
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
@@ -177,7 +128,9 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--warmup_ratio', type=float, default=0)
+        parser.add_argument('--lr_scheduler_type', type=str, default='linear')
 
         return parser
 
@@ -310,7 +263,6 @@ class WandbPredictionProgressCallback(WandbCallback):
                     predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
             
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
-            
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -353,7 +305,9 @@ if __name__ == "__main__":
         do_train=True,
         generation_max_length=hparams.max_length,
         load_best_model_at_end=True,
-        save_strategy='epoch'
+        save_strategy='epoch',
+        warmup_ratio=hparams.warmup_ratio,
+        lr_scheduler_type=hparams.lr_scheduler_type
     )
 
     trainer = Seq2SeqTrainer(
