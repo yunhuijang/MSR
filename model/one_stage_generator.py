@@ -45,10 +45,10 @@ class FineTuneTranslator(pl.LightningModule):
         if self.base_arch == 'biot5':
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
-            description_list = [d['input'] for d in data['Instances']][:100]
-            gt_selfies_list = [d['output'][0] for d in data['Instances']][:100]
-            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list][:100]
-            id_list = [d['id'] for d in data['Instances']][:100]
+            description_list = [d['input'] for d in data['Instances']]
+            gt_selfies_list = [d['output'][0] for d in data['Instances']]
+            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
+            id_list = [d['id'] for d in data['Instances']]
             data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
         else:
             smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')

@@ -28,11 +28,11 @@ srun python model/one_stage_generator.py \
 --cot_mode_con_ring_name \
 --cot_mode_functional_group \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 4 \
+--eval_batch_size 4 \
+--check_val_every_n_epoch 5 \
 --epochs 250 \
 --model_id laituan245 \
---run_id qbtxjg3f \
 --max_length 820
 
 

@@ -134,18 +134,8 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
             file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             smiles_list = self.test_dataset['smiles']
 
-            if self.base_arch == 'biot5':
-                # selfies to smiles
-                gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
-                # gt_selfies = decoded_labels
-                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in gt_selfies]
-                predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
-                # predicted_selfies = decoded_preds
-                predicted_selfies = [dp.replace(" ", "") for dp in predicted_selfies]
-                predicted_smiles = [selfies_to_smiles(sf) for sf in predicted_selfies]
-            else:
-                gt_description = decoded_labels
-                predicted_description = decoded_preds
+            gt_description = decoded_labels
+            predicted_description = decoded_preds
             
             self.log_description_results(file_name, smiles_list, gt_description, predicted_description)
             
