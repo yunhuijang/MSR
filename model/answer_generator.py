@@ -107,6 +107,8 @@ class FineTuneAnswer(FineTuneTranslator):
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
+        parser.add_argument('--warmup_ratio', type=float, default=0)
+        parser.add_argument('--lr_scheduler_type', type=str, default='linear')
 
 
         return parser
