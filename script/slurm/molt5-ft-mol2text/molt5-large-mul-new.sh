@@ -33,7 +33,8 @@ srun python model/one_stage_generator_mol2text.py \
 --check_val_every_n_epoch 5 \
 --epochs 250 \
 --model_id laituan245 \
---max_length 820
+--max_length 820 \
+--run_id m2nrbwv1
 
 
 
