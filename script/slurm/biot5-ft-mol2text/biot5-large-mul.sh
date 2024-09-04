@@ -28,7 +28,7 @@ srun python model/one_stage_generator_mol2text.py \
 --cot_mode_con_ring_name \
 --cot_mode_functional_group \
 --wandb_mode online \
---train_batch_size 32 \
+--train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei \
@@ -36,7 +36,8 @@ srun python model/one_stage_generator_mol2text.py \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --check_val_every_n_epoch 5 \
---lr_scheduler_type cosine
+--lr_scheduler_type cosine \
+--max_length 820
 
 
 

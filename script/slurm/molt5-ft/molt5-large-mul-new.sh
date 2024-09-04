@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J answer-base-mul
-#SBATCH -p A6000
+#SBATCH -J ft-large-mul
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -20,8 +20,8 @@ date
 
 nvidia-smi
 
-srun python model/answer_generator.py \
---architecture molt5-base \
+srun python model/one_stage_generator.py \
+--architecture molt5-large \
 --cot_mode_multiset None \
 --cot_mode_aromatic \
 --cot_mode_chain \
@@ -31,11 +31,9 @@ srun python model/answer_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---max_length 512 \
 --model_id laituan245 \
---max_length 820 \
---check_val_every_n_epoch 5
-
+--run_id qbtxjg3f \
+--max_length 820
 
 
 
