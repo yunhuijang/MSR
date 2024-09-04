@@ -32,8 +32,7 @@ srun python model/one_stage_generator_mol2text.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id laituan245 \
---max_length 820 \
---run_id b7z94nxc
+--max_length 820
 
 
 
