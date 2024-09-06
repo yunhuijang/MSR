@@ -18,11 +18,14 @@ import wandb
 import pytorch_lightning as pl
 from huggingface_hub.hf_api import HfFolder
 import torch
+from accelerate import Accelerator
+
 
 from evaluation import text_translation_metrics
 from util_cot import map_cot_mode, add_cot_to_target, add_cot_to_text
 from util import selfies_to_smiles
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
+
 
 class FineTuneTranslatorMol2Text(FineTuneTranslator):
     def __init__(self, hparams):
@@ -157,10 +160,10 @@ if __name__ == "__main__":
     
 
     if hparams.run_id == '':
-        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
-        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft', mode=hparams.wandb_mode,
+        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(
@@ -184,14 +187,17 @@ if __name__ == "__main__":
         save_strategy='epoch'
     )
 
-    trainer = Seq2SeqTrainer(
+    accelerater = Accelerator()
+    
+    
+    trainer = accelerater.prepare(Seq2SeqTrainer(
         model=model.pretrained_model,
         data_collator=model.data_collator,
         args=training_args,
         train_dataset=model.train_dataset_tokenized,
         eval_dataset=model.test_dataset_tokenized,
         tokenizer=model.tokenizer,
-    )
+    ))
     
     wandb_callback = WandbPredictionProgressCallbackMol2Text(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     

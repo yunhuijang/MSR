@@ -21,6 +21,7 @@ from huggingface_hub.hf_api import HfFolder
 import torch
 import selfies
 import json
+from accelerate import Accelerator
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot, add_cot_to_text, map_cot_to_smiles_list
@@ -310,14 +311,16 @@ if __name__ == "__main__":
         lr_scheduler_type=hparams.lr_scheduler_type
     )
 
-    trainer = Seq2SeqTrainer(
+    accelerator = Accelerator()
+    
+    trainer = accelerator.prepare(Seq2SeqTrainer(
         model=model.pretrained_model,
         data_collator=model.data_collator,
         args=training_args,
         train_dataset=model.train_dataset_tokenized,
         eval_dataset=model.test_dataset_tokenized,
         tokenizer=model.tokenizer,
-    )
+    ))
     
     wandb_callback = WandbPredictionProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     

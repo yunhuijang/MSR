@@ -8,6 +8,8 @@ import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
+from accelerate import Accelerator
+
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from analysis import compute_cot_accuracy
@@ -35,7 +37,7 @@ class FineTuneReasoning(FineTuneTranslator):
 
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small')
+        parser.add_argument("--architecture", type=str, default='molt5-base')
         parser.add_argument("--cot_mode_multiset", type=str, default='None')
         parser.add_argument("--cot_mode_fragment", action='store_true')
         parser.add_argument("--cot_mode_ring", action='store_true')
@@ -121,19 +123,6 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                     wandb_log_dict[f'cot/{mode}_acc_type'] = sum(acc[1])/len(acc[0])
                     wandb_log_dict[f'cot/{mode}_acc'] = sum(acc[2])/len(acc[0])
             
-            # if len(ring_acc[0]) > 0:
-            #     wandb_log_dict['cot/ring_acc_count'] = sum(ring_acc[0])/len(ring_acc[0])
-            #     wandb_log_dict['cot/ring_acc_type'] = sum(ring_acc[1])/len(ring_acc[0])
-            #     wandb_log_dict['cot/ring_acc'] = sum(ring_acc[2])/len(ring_acc[0])
-            
-            # if len(multi_acc[0]) > 0:
-            #     wandb_log_dict['cot/multi_acc_count'] = sum(multi_acc[0])/len(multi_acc[0])
-            #     wandb_log_dict['cot/multi_acc_type'] = sum(multi_acc[1])/len(multi_acc[0])
-            #     wandb_log_dict['cot/multi_acc'] = sum(multi_acc[2])/len(multi_acc[0])
-            
-            # if len(arom_acc) > 0:
-            #     wandb_log_dict['cot/arom_acc'] = sum(arom_acc[0])/len(arom_acc[0])
-            
             self._wandb.log(wandb_log_dict)
             
 
@@ -180,14 +169,16 @@ if __name__ == "__main__":
         load_best_model_at_end=True
     )
 
-    trainer = Seq2SeqTrainer(
+    accelerator = Accelerator()
+    
+    trainer = accelerator.prepare(Seq2SeqTrainer(
         model=model.pretrained_model,
         data_collator=model.data_collator,
         args=training_args,
         train_dataset=model.train_dataset_tokenized,
         eval_dataset=model.test_dataset_tokenized,
         tokenizer=model.tokenizer,
-    )
+    ))
     
     wandb_callback = WandbReasoningProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     

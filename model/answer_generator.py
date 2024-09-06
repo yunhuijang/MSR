@@ -11,6 +11,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
 from datasets import Dataset
 import json
+from accelerate import Accelerator
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from util_cot import map_cot_mode
@@ -247,14 +248,16 @@ if __name__ == "__main__":
         warmup_ratio=0.02
     )
 
-    trainer = Seq2SeqTrainer(
+    accelerator = Accelerator()
+    
+    trainer = accelerator.prepare(Seq2SeqTrainer(
         model=model.pretrained_model,
         data_collator=model.data_collator,
         args=training_args,
         train_dataset=model.train_dataset_tokenized,
         eval_dataset=model.test_dataset_tokenized,
         tokenizer=model.tokenizer,
-    )
+    ))
     
     wandb_callback = WandbAnswerProgressCallback(trainer, model.tokenizer, model.test_dataset_tokenized, hparams=hparams)
     
