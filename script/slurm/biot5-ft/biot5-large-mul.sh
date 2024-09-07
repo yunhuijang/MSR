@@ -37,7 +37,8 @@ srun python model/one_stage_generator.py \
 --warmup_ratio 0.1 \
 --check_val_every_n_epoch 5 \
 --lr_scheduler_type cosine \
---max_length 820
+--max_length 820 \
+--run_id 34jlp8ni
 
 
 
