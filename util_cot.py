@@ -434,8 +434,10 @@ def map_cot_mode(hparams):
     cot_mode_con_ring_name = hparams.cot_mode_con_ring_name
     cot_mode_scaffold = hparams.cot_mode_scaffold
     cot_mode_functional_group = hparams.cot_mode_functional_group
-    # CoT order: scaffold, chain, fragment, ring, multiset, aromatic, function, ring_name, connected ring name, iupac
+    # CoT order: function, scaffold, chain, fragment, ring, multiset, aromatic, ring_name, connected ring name, iupac
     cot_mode = ""
+    if cot_mode_functional_group:
+        cot_mode += '-fg'
     if cot_mode_scaffold:
         cot_mode += '-scaffold'
     if cot_mode_chain:
@@ -448,8 +450,6 @@ def map_cot_mode(hparams):
         cot_mode += f'-multiset_{cot_mode_multiset}'
     if cot_mode_aromaticity:
         cot_mode += '-arom'
-    if cot_mode_functional_group:
-        cot_mode += '-fg'
     if cot_mode_ring_name:
         cot_mode += '-rname'
     if cot_mode_con_ring_name:
@@ -460,7 +460,7 @@ def map_cot_mode(hparams):
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: scaffold, chain, fragment, ring, multiset, aromatic, function, ring_name, connected ring name, iupac
+    # CoT order: function, scaffold, chain, fragment, ring, multiset, aromatic, ring_name, connected ring name, iupac
     # <FIX> Need to be fixed when CoT added
     if 'iupac' in cot_mode:
         targets = [f"{cot_iupac}{target}" for target, cot_iupac in zip(targets, examples['cot_iupac'])]
@@ -470,9 +470,6 @@ def add_cot_to_target(examples, targets, cot_mode):
     
     if 'rname' in cot_mode:
         targets = [f"{cot_ring_name}{target}" for target, cot_ring_name in zip(targets, examples['cot_ring_name'])]
-    
-    if 'fg' in cot_mode:
-        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
     
     if 'arom' in cot_mode:
         targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
@@ -491,7 +488,11 @@ def add_cot_to_target(examples, targets, cot_mode):
 
     if 'scaffold' in cot_mode:
         targets = [f"{cot_scaffold}{target}" for target, cot_scaffold in zip(targets, examples['cot_scaffold'])]
-        
+    
+    if 'fg' in cot_mode:
+        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
+    
+    
     return targets
 
 def add_cot_to_text(eaxmples, targets, direction='forward'):
