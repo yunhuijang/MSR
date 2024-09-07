@@ -14,6 +14,7 @@ from huggingface_hub.hf_api import HfFolder
 from util_cot import map_cot_mode, map_cot_to_smiles_list
 from evaluation import text_translation_metrics, mol_translation_metrics, fingerprint_metrics, fcd_metric
 import wandb
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 openai_key = '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'
 os.environ['OPENAI_API_KEY'] = openai_key   
@@ -26,6 +27,7 @@ def generalist(hparams):
     k = hparams.k
     model_id = hparams.model_id
     max_length = hparams.max_length
+    cot_mode = map_cot_mode(hparams)
 
     # load train data for examples (few-shot learning)
     smiles_list_path = os.path.join('ChEBI-20_data', f'train.txt')
@@ -48,7 +50,22 @@ def generalist(hparams):
 
     
     final_results = []
-    wrong_results = []
+    generated_cot_list= []
+
+    # Set models
+    if 'llama' in model_id:
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
+        model.generation_config.pad_token_id = tokenizer.pad_token_id
+        
+    elif 'gpt' in model_id:
+        client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))   
+        
+    
     for index, (description, smiles, cot) in enumerate(zip(description_list_test, tqdm(gt_smiles_list_test), cot_list_test)):
         # sample k-shot data
         random.seed(index)
@@ -76,9 +93,20 @@ def generalist(hparams):
                     + f"{{\"molecule\": \"{k_smi}\"}}" \
                     + "```\n" \
                     + "\n"
-                        
-            # head_prompt += "Your response should only be in the JSON format above; THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. "
-            head_prompt += "Your response should include the molecule caption and the JSON format above. "
+            if cot_mode == '':
+                head_prompt += "Your response should only be in the JSON format above; THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. "
+            else:
+                head_prompt += "You should FIRST generate the description of "
+                if hparams.cot_mode_functional_group:
+                    head_prompt += "all the functional groups, "
+                if hparams.cot_mode_aromatic:
+                    head_prompt += "the number of aromatic rings, "
+                if hparams.cot_mode_chain:
+                    head_prompt += "the length of longest carbon chain, "
+                if hparams.cot_mode_con_ring_name:
+                    head_prompt += "the IUPAC name of all the rings "
+                head_prompt += "of the molecule in a language"
+                head_prompt += "and then provide the JSON format of the molecule SMILES. "
             input_prompt = f"Input: {description}"
             
         elif task == 'mol2text':
@@ -108,14 +136,6 @@ def generalist(hparams):
         ]
 
         if 'llama' in model_id:
-            tokenizer = AutoTokenizer.from_pretrained(model_id)
-            model = AutoModelForCausalLM.from_pretrained(
-                model_id,
-                torch_dtype=torch.bfloat16,
-                device_map="auto",
-            )
-        
-        
             input_ids = tokenizer.apply_chat_template(
                 messages,
                 add_generation_prompt=True,
@@ -141,9 +161,6 @@ def generalist(hparams):
 
         
         elif 'gpt' in model_id:
-            
-            client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))   
-            
             response = client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
@@ -153,7 +170,7 @@ def generalist(hparams):
                 )
             
             output = response.choices[0].message.content
-            
+
         # filter only results (remove 'caption' tag)
         try:
             start_index = output.find('{')
@@ -162,18 +179,34 @@ def generalist(hparams):
             result = json.loads(result)
             result_smiles = list(result.values())[0]
         except:
-            if 'caption' in output:
-                if '}' in output:
-                    # some character exists after }
-                    result_smiles = output[output.find('caption')+len('caption')+4:result.find('}')-1]
-                else:
-                    # unclosed }
-                    result_smiles = output[output.find('caption')+len('caption')+4:]
+            if hparams.task == 'mol2text':
+                key_word = 'caption'
             else:
-                # generates no 'caption'
-                result_smiles = output
+                key_word = 'molecule'
+            if key_word in output:
+                if '}' in output and '{' in output:
+                    # some character exists after }
+                    output = output[output.find('{'):]
+                    result_smiles = output[output.find(key_word)+len(key_word)+4:result.find('}')-1]
+                elif '{' in output:
+                    output = output[output.find('{'):]
+                    result_smiles = output[output.find(key_word)+len(key_word)+4:]
+                else:
+                    result_smiles = output.strip().replace('\n', '')
+            else:
+                # no keyword 
+                result_smiles = output.strip().replace('\n', '')
         
         final_results.append(result_smiles)
+
+        if task == 'text2mol':
+            generated_cot_list.append(output.split('{')[0].strip().replace('\n', '\t'))
+    # log generated CoT
+    if task == 'text2mol':
+        with open(f'predictions/generalist/cot-{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}.txt', 'w') as f:
+            f.write('SMILES' + '\t' + 'generated_cot' + '\n')
+            for smi, cot in zip(gt_smiles_list_test, generated_cot_list):
+                f.write(smi + '\t' + cot + '\n')
     
     
     return description_list_test, gt_smiles_list_test, final_results
@@ -192,6 +225,7 @@ def evaluate_mol2text(file_name, description_list_test, gt_smiles_list_test, fin
             "ROUGEL": round(rouge_l, 3), "METEOR": round(meteor_score, 3)
             }
     wandb.log(result)
+    print(result)
 
 def evaluate_text2mol(file_name, description_list_test, gt_smiles_list_test, final_results):
     with open(f'{file_name}', 'w') as f:
@@ -208,7 +242,7 @@ def evaluate_text2mol(file_name, description_list_test, gt_smiles_list_test, fin
             "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
             }
     wandb.log(result)
-
+    print(result)
 
 @staticmethod
 def add_args(parser):
@@ -226,9 +260,9 @@ def add_args(parser):
 
     parser.add_argument("--wandb_mode", type=str, default='disabled')
 
-    parser.add_argument("--task", type=str, default='mol2text', choices=['mol2text', 'text2mol'])
+    parser.add_argument("--task", type=str, default='text2mol', choices=['mol2text', 'text2mol'])
     parser.add_argument("--k", type=int, default=3)
-    parser.add_argument("--model_id", type=str, default='meta-llama/Meta-Llama-3.1-405B-Instruct', 
+    parser.add_argument("--model_id", type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', 
                         choices=['meta-llama/Meta-Llama-3-8B-Instruct', 'gpt-4o',
                                 'meta-llama/Meta-Llama-3.1-70B-Instruct', 'meta-llama/Meta-Llama-3.1-405B-Instruct',
                                 'meta-llama/Meta-Llama-3.1-8B-Instruct'])
@@ -249,7 +283,7 @@ if __name__ == "__main__":
     file_name = f'predictions/generalist/{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}.txt'
     wandb.init(project=hparams.task.split('2')[1]+'2'+hparams.task.split('2')[0], name=f'{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}',
                 group='generalist', mode=hparams.wandb_mode)
-
+    wandb.config.update(hparams, allow_val_change=True)
     description_list_test, gt_smiles_list_test, final_results = generalist(hparams)
     if hparams.task == 'mol2text':
         evaluate_mol2text(file_name, description_list_test, gt_smiles_list_test, final_results)

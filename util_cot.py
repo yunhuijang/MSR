@@ -167,17 +167,18 @@ def map_aromatic_ring_cot(smiles_list):
 
 def map_carbon_chain_length(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
-    edit_mols = [EditableMol(mol) if mol is not None else None for mol in mols]
+    # edit_mols = [EditableMol(mol) if mol is not None else None for mol in mols]
     carbon_mol = Chem.MolFromSmiles('C'*100)
-    ring_atoms = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
-    ring_atom_indices = [sorted(list(set([atom for ring in ring_atom for atom in ring])), reverse=True) for ring_atom in ring_atoms]
-    for edit_mol, atom_index in zip(edit_mols, ring_atom_indices):
-        if edit_mol is None:
-            continue
-        for ai in atom_index:
-            edit_mol.RemoveAtom(ai)
-    mol_wo_rings = [edit_mol.GetMol() if edit_mol is not None else None for edit_mol in edit_mols]
-    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mol_wo_rings]
+    # ring_atoms = [mol.GetRingInfo().AtomRings() if mol is not None else [] for mol in mols]
+    # ring_atom_indices = [sorted(list(set([atom for ring in ring_atom for atom in ring])), reverse=True) for ring_atom in ring_atoms]
+    # for edit_mol, atom_index in zip(edit_mols, ring_atom_indices):
+    #     if edit_mol is None:
+    #         continue
+    #     for ai in atom_index:
+    #         edit_mol.RemoveAtom(ai)
+    # mol_wo_rings = [edit_mol.GetMol() if edit_mol is not None else None for edit_mol in edit_mols]
+    # carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mol_wo_rings]
+    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mols]
     carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
     cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
     

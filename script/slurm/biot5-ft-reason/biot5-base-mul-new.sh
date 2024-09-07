@@ -32,7 +32,12 @@ srun python model/reasoning_generator.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei \
---run_id ehxvowk4
+--weight_decay 0 \
+--learning_rate 1e-3 \
+--warmup_ratio 0.1 \
+--check_val_every_n_epoch 5 \
+--lr_scheduler_type cosine \
+--max_length 820
 
 
 
