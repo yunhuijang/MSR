@@ -1,6 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J ft-biolarge-m2t
+#SBATCH -q add_hpgpu
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
