@@ -33,7 +33,7 @@ srun python model/reasoning_generator.py \
 --epochs 250 \
 --max_length 512 \
 --model_id laituan245 \
---run_id cdbagvxb
+--run_id 82v6r9xh
 
 
 
