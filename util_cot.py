@@ -8,7 +8,7 @@ from torch.nn.utils.rnn import pad_sequence
 import os
 from pathlib import Path
 from rdkit.Chem.rdMolDescriptors import CalcNumAromaticRings
-from rdkit.Chem import MCS
+from rdkit.Chem import MCS, rdFMCS
 import logging
 import pubchempy
 import json
@@ -178,7 +178,7 @@ def map_carbon_chain_length(smiles_list):
     #         edit_mol.RemoveAtom(ai)
     # mol_wo_rings = [edit_mol.GetMol() if edit_mol is not None else None for edit_mol in edit_mols]
     # carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mol_wo_rings]
-    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mols]
+    carbon_chain_length = [rdFMCS.FindMCS([mol, carbon_mol]).smartsString if mol is not None else "" for mol in mols]
     carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
     cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
     
