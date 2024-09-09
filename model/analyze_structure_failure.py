@@ -62,7 +62,7 @@ def analyze_structure_failure(hparams):
         
     head_prompt =  "You are now working as an excellent expert in chemisrty and drug discovery. \
                 Given the SMILES representation of a molecule and structural description of the molecule, your job is to predict the structural information of the molecule. \
-                The structural information of the molecule caption includes ALL the functional groups, the length of the longest carbon chain except for ring, the number of aromatic rings, and the IUPAC names of ALL the rings in the molecule.\n" \
+                The structural information of the molecule caption includes ALL the functional groups, the length of the longest carbon chain including ring, the number of aromatic rings, and the IUPAC names of ALL the rings in the molecule.\n" \
                 + "\n"
     
     for index, smiles in enumerate(tqdm(gt_smiles_list_test)):
@@ -167,7 +167,7 @@ def add_args(parser):
                         choices=['meta-llama/Meta-Llama-3-8B-Instruct', 'gpt-4o',
                                 'meta-llama/Meta-Llama-3.1-70B-Instruct', 'meta-llama/Meta-Llama-3.1-405B-Instruct',
                                 'meta-llama/Meta-Llama-3.1-8B-Instruct'])
-    parser.add_argument("--max_length", type=int, default=768)
+    parser.add_argument("--max_length", type=int, default=256)
     parser.add_argument("--architecture", type=str, default='llama3', choices=['llama3', 'gpt4o'])
 
     return parser
