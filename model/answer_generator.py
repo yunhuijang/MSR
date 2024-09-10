@@ -50,7 +50,7 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}-{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             data_dict['cot'] = cot_list[:len(gt_smiles_list)]
