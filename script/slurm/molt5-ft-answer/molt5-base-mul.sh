@@ -23,10 +23,7 @@ nvidia-smi
 srun python model/answer_generator.py \
 --architecture molt5-base \
 --cot_mode_multiset None \
---cot_mode_aromatic \
---cot_mode_chain \
---cot_mode_con_ring_name \
---cot_mode_functional_group \
+--cot_mode func_simple-chain-aromatic-con_ring_name \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
@@ -34,8 +31,7 @@ srun python model/answer_generator.py \
 --max_length 512 \
 --model_id laituan245 \
 --max_length 820 \
---check_val_every_n_epoch 5 \
---run_id f5z0gpvt
+--check_val_every_n_epoch 5
 
 
 

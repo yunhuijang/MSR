@@ -1,7 +1,8 @@
 #!/bin/sh
 
 #SBATCH -J answer-biobase-mul
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -23,10 +24,7 @@ nvidia-smi
 srun python model/answer_generator.py \
 --architecture biot5-plus-base \
 --cot_mode_multiset None \
---cot_mode_aromatic \
---cot_mode_chain \
---cot_mode_con_ring_name \
---cot_mode_functional_group \
+--cot_mode func_simple-chain-aromatic-con_ring_name \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \

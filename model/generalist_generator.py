@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, OPTForCausalLM
 import torch
 import os
 from pathlib import Path
@@ -64,7 +64,11 @@ def generalist(hparams):
         
     elif 'gpt' in model_id:
         client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))   
-        
+    
+    elif 'galactica' in model_id:
+        tokenizer = AutoTokenizer.from_pretrained(f"facebook/{model_id}")
+        model = OPTForCausalLM.from_pretrained(f"facebook/{model_id}", device_map="auto")
+    
     
     for index, (description, smiles, cot) in enumerate(zip(description_list_test, tqdm(gt_smiles_list_test), cot_list_test)):
         # sample k-shot data
@@ -76,10 +80,16 @@ def generalist(hparams):
         
         # head / input prompt
         if task == 'text2mol':
+            # head_prompt = "You are now working as an excellent expert in chemisrty and drug discovery. \
+            #     Given the caption of a molecule, your job is to predict the SMILES representation of the molecule. \
+            #     The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production. \
+            #     You can infer the molecule SMILES representation from the caption.\n" \
+            #     + "\n"
             head_prompt = "You are now working as an excellent expert in chemisrty and drug discovery. \
                 Given the caption of a molecule, your job is to predict the SMILES representation of the molecule. \
                 The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production. \
-                You can infer the molecule SMILES representation from the caption.\n" \
+                You can infer the molecule SMILES representation from the caption. \
+                Before you infer the molecule SMILES representation, YOU SHOULD FIRST GENERATE THE DESCRIPTION of the molecule including all the functional groups, the number of aromatic rings, the length of longest carbon chain, and the IUPAC name of all the rings.\n" \
                 + "\n"
             for k_index, (k_des, k_smi, k_cot) in enumerate(zip(k_shot_description_list, k_shot_smiles_list, k_shot_cot_list)):
                 head_prompt += f"Example {k_index+1}: \n" \
@@ -97,15 +107,21 @@ def generalist(hparams):
                 head_prompt += "Your response should only be in the JSON format above; THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. "
             else:
                 head_prompt += "You should FIRST generate the description of "
-                if hparams.cot_mode_functional_group:
-                    head_prompt += "all the functional groups, "
-                if hparams.cot_mode_aromatic:
+                if 'func' in cot_mode:
+                    if 'func_simple' in cot_mode:
+                        head_prompt += "all the functional groups, "
+                    else:
+                        head_prompt += "all the functional groups including the SMILES representation of the functional group, "
+                if 'aromatic' in cot_mode:
                     head_prompt += "the number of aromatic rings, "
-                if hparams.cot_mode_chain:
+                if 'chain' in cot_mode:
                     head_prompt += "the length of longest carbon chain, "
-                if hparams.cot_mode_con_ring_name:
+                if 'con_ring_name' in cot_mode:
                     head_prompt += "the IUPAC name of all the rings "
-                head_prompt += "of the molecule in a language"
+                if 'double_bond' in cot_mode:
+                    head_prompt += "the number of double bonds "
+                
+                head_prompt += "of the molecule in the same format of the input in the examples above, "
                 head_prompt += "and then provide the JSON format of the molecule SMILES. "
             input_prompt = f"Input: {description}"
             
@@ -203,12 +219,14 @@ def generalist(hparams):
             generated_cot_list.append(output.split('{')[0].strip().replace('\n', '\t'))
     # log generated CoT
     if task == 'text2mol':
-        with open(f'predictions/generalist/cot-{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}.txt', 'w') as f:
+        with open(f'predictions/generalist/cot-{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}-{hparams.test_name}.txt', 'w') as f:
             f.write('SMILES' + '\t' + 'generated_cot' + '\n')
             for smi, cot in zip(gt_smiles_list_test, generated_cot_list):
                 f.write(smi + '\t' + cot + '\n')
-    
-    
+        result_data = [gt_smiles_list_test, generated_cot_list]
+        table = wandb.Table(data=list(map(list, zip(*result_data))), columns=['SMILES', 'generated_cot'])
+        wandb.log({"Generated CoT": table})
+        
     return description_list_test, gt_smiles_list_test, final_results
 
 def evaluate_mol2text(file_name, description_list_test, gt_smiles_list_test, final_results):
@@ -232,7 +250,10 @@ def evaluate_text2mol(file_name, description_list_test, gt_smiles_list_test, fin
             f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
             for desc, rt, ot in zip(description_list_test, gt_smiles_list_test, final_results):
                 f.write(desc + '\t' + rt + '\t' + ot + '\n')
-                
+    result_data = [description_list_test, gt_smiles_list_test, final_results]
+    table = wandb.Table(data=list(map(list, zip(*result_data))), columns=['SMILES', 'gt_smiles', 'pred_smiles'])
+    wandb.log({"Results": table})
+    
     bleu_score, exact_match_score, levenshtein_score, validity_score = mol_translation_metrics.evaluate(file_name)
     validity_score, maccs_sims_score, rdk_sims_score, morgan_sims_score = fingerprint_metrics.evaluate(file_name, 2)
     fcd_metric_score = fcd_metric.evaluate(file_name)
@@ -246,28 +267,22 @@ def evaluate_text2mol(file_name, description_list_test, gt_smiles_list_test, fin
 
 @staticmethod
 def add_args(parser):
-    parser.add_argument("--cot_mode_multiset", type=str, default='None')
-    parser.add_argument("--cot_mode_fragment", action='store_true')
-    parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--cot_mode_ring_name", action='store_true')
-    parser.add_argument("--cot_mode_iupac", action='store_true')
-    parser.add_argument("--cot_mode_scaffold", action='store_true')
+    parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name', 
+                        help="Choices: func, scaffold, chain, fragment, ring, \
+                            multiset_simple/full/formula/type \
+                            aromatic, ring_name, con_ring_name, iupac")
     
-    parser.add_argument("--cot_mode_aromatic", action='store_true')
-    parser.add_argument("--cot_mode_chain", action='store_true')
-    parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-    parser.add_argument("--cot_mode_functional_group", action='store_true')
-
+    parser.add_argument("--test_name", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name')
     parser.add_argument("--wandb_mode", type=str, default='disabled')
 
     parser.add_argument("--task", type=str, default='text2mol', choices=['mol2text', 'text2mol'])
-    parser.add_argument("--k", type=int, default=3)
+    parser.add_argument("--k", type=int, default=10)
     parser.add_argument("--model_id", type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', 
                         choices=['meta-llama/Meta-Llama-3-8B-Instruct', 'gpt-4o',
                                 'meta-llama/Meta-Llama-3.1-70B-Instruct', 'meta-llama/Meta-Llama-3.1-405B-Instruct',
-                                'meta-llama/Meta-Llama-3.1-8B-Instruct'])
+                                'meta-llama/Meta-Llama-3.1-8B-Instruct', 'galactica-6.7b'])
     parser.add_argument("--max_length", type=int, default=768)
-    parser.add_argument("--architecture", type=str, default='llama3', choices=['llama3', 'gpt4o'])
+    parser.add_argument("--architecture", type=str, default='llama3', choices=['llama3', 'gpt4o', 'galactica'])
 
     return parser
 
@@ -280,7 +295,7 @@ if __name__ == "__main__":
     hparams = parser.parse_args()
     cot_mode = map_cot_mode(hparams)
     
-    file_name = f'predictions/generalist/{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}.txt'
+    file_name = f'predictions/generalist/{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}-{hparams.test_name}.txt'
     wandb.init(project=hparams.task.split('2')[1]+'2'+hparams.task.split('2')[0], name=f'{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}',
                 group='generalist', mode=hparams.wandb_mode)
     wandb.config.update(hparams, allow_val_change=True)

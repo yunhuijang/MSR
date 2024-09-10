@@ -24,6 +24,11 @@ from rdkit.Chem.rdchem import EditableMol
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
+TOTAL_COT_MODES = ['func_simple', 'func_smiles', 'scaffold', 'chain', 'fragment', 'ring', 'multiset_simple', \
+            'multiset_full', 'multiset_formula', 'multiset_type', 'aromatic', 'ring_name',  \
+            'con_ring_name', 'iupac', 'double_bond']
+
+
 def flatten(xss):
     return [x for xs in xss for x in xs]
 
@@ -85,8 +90,8 @@ def map_multiset_cot(smiles_list, mode='simple'):
     '''
     SMILES -> Multiset CoT
     '''
-    if mode not in ['simple', 'formula', 'full', 'only_type']:
-        raise ValueError("Mode should be one of 'simple', 'formula', 'full'")
+    if mode not in ['simple', 'formula', 'full', 'type']:
+        raise ValueError("Mode should be one of 'simple', 'formula', 'full', and 'type'")
     
     
     if mode == 'formula':
@@ -98,7 +103,7 @@ def map_multiset_cot(smiles_list, mode='simple'):
         
         
         tokens = [tokenize(smiles)[1:-1] for smiles in smiles_list]
-        if mode == 'only_type':
+        if mode == 'type':
             token_set = [set(token) for token in tokens]
             token_set = [[t for t in token if t in set(NODE_TOKENS).union(BOND_TOKENS)] for token in token_set]
             return [" It includes " + ", ".join(token) + '.' if len(token) > 0 else "" for token in token_set]
@@ -123,7 +128,7 @@ def map_multiset_cot(smiles_list, mode='simple'):
                 cot = cot[:-1] + '.'
                 multiset_cot.append(cot)
 
-        return multiset_cot
+    return multiset_cot
 
 def map_ring_cot(smiles_list):
     '''
@@ -177,11 +182,18 @@ def map_carbon_chain_length(smiles_list):
         for ai in atom_index:
             edit_mol.RemoveAtom(ai)
     mol_wo_rings = [edit_mol.GetMol() if edit_mol is not None else None for edit_mol in edit_mols]
-    carbon_chain_length = [MCS.FindMCS([mol, carbon_mol]).smarts if mol is not None else "" for mol in mol_wo_rings]
+    carbon_chain_length = [rdFMCS.FindMCS([mol, carbon_mol]).smartsString if mol is not None else "" for mol in mol_wo_rings]
     # carbon_chain_length = [rdFMCS.FindMCS([mol, carbon_mol]).smartsString if mol is not None else "" for mol in mols]
     carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
     cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
     
+    return cot_list
+
+def map_num_double_bond(smiles_list):
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    bond_list = [mol.GetBonds() if mol is not None else [] for mol in mols]
+    nums = [sum([b.GetBondType()==Chem.BondType.DOUBLE for b in list(bonds)]) for bonds in bond_list]
+    cot_list = [f" The molecule has {num} double bonds." for num in nums]
     return cot_list
 
 def map_symbol(mol, index, i, ring_size):
@@ -248,16 +260,147 @@ def map_scaffold_cot(smiles_list):
 
     return cot_list
 
-def map_functional_group_cot(smiles_list):
+
+functional_group_smarts_dict = {
+    'acid': '[!H0;F,Cl,Br,I,N+,$([OH]-*=[!#6]),+]',
+    'acyl halide': '[#6X3;H0](=[OX1H0])([FX1,ClX1,BrX1,IX1])[!H]',
+    'alcohol': '[#6][OX2H]',
+    'aldehyde': '[CX3H1](=O)[#6]',
+    'alkane': '[CX4]',
+    'alkene': '[CX3]=[CX3]',
+    'alkylaluminium': '[Al][C,c]',
+    'alkyllithium': '[Li+;H0].[C-]',
+    # 'alkylmagnesium halide': ('[I-,Br-,Cl-,F-].[Mg+][C,c]', '[I,Br,Cl,F][Mg]', '[c-,C-].[Mg+2].[I-,Br-,Cl-,F-]'),
+    'alkyne': '[CX2]#C',
+    # 'amine': ('[NX3+0,NX4+;!$([N]~[!#6]);!$([N]*~[#7,#8,#15,#16])]', '[ND3]([CX4])([CX4])[CX4]', '[NX3H0+0,NX4H1+;!$([N][!c]);!$([N]*~[#7,#8,#15,#16])]', '[NX3H0+0,NX4H1+;!$([N][!C]);!$([N]*~[#7,#8,#15,#16])]', '[NX3H0+0,NX4H1+;$([N]([c])([C])[#6]);!$([N]*~[#7,#8,#15,#16])]', '[#6]-[#7](-[#6])-[#6]', '[CX4][NH2]', '[NX3H2+0,NX4H3+;!$([N][!C]);!$([N]*~[#7,#8,#15,#16])]', '[NX3H2+0,NX4H3+]c', '[N+X4]([c,C])([c,C])([c,C])[c,C]'),
+    # 'amide': ['[NX3][CX3](=[OX1])[#6]', 'O=C([c,CX4])[$([NH2]),$([NH][c,CX4]),$(N([c,CX4])[c,CX4])]', '[CX3;$([R0][#6]),$([H1R0])](=[OX1])[#7X3;$([H2]),$([H1][#6;!$(C=[O,N,S])]),$([#7]([#6;!$(C=[O,N,S])])[#6;!$(C=[O,N,S])])]', '[*][CX3](=[OX1H0])[NX3]([*])([*])'],
+    # 'amidine': ['[*][NX2]=[CX3H0]([*])[NX3]([*])([*])', '[NX2H1]=[CX3H0]([*])[NX3]([*])([*])', '[NX2H1]=[CX3H0]([*])[NX3H1]([*])', '[NX2H1]=[CX3H0]([*])[NX3H2]', '[*][NX2]=[CX3H0]([*])[NX3H1]([*])', '[*][NX2]=[CX3H0]([*])[NX3H2]'],
+    'anhydride': '[CX3](=[OX1])[OX2][CX3](=[OX1])',
+    'aromatic': '[c]',
+    'azide': '[NX2]=[N+X2H0]=[N-X1H0]',
+    'azo': '[*][NX2]=[NX2][*]',
+    'benzene': 'c1ccccc1',
+    # 'borinic acid': ('[BX3;H0]([OX2H1])([!O])[!O]', '[BX3;H1]([OX2H1])[!O]', '[BX3;H2][OX2H1]'),
+    'borinic ester': '[BX3;H0]([OX2H0])([!O])[!O]',
+    'boronic acid': '[BX3]([OX2H])([OX2H])',
+    'boronic ester': '[BX3;H0]([OX2H0])([OX2H0])[!O@!H]',
+    'branched alkane': 'CC(C)C',
+    'bromoalkane': '[#6][Br]',
+    'carbamate': '[OX2][CX3H0](=[OX1H0])[NX3]',
+    'carbodithio': '[#6X3;H0](=[SX1H0])([!H])[SX2H0]([!H])',
+    'carbodithioic acid': '[#6X3;H0](=[SX1H0])([!H])[SX2H1]',
+    'carbonate': '[!H][OX2H0][CX3H0](=[OX1H0])[OX2H0][!H]',
+    'carbothioic o acid': '[#6X3;H0]([OX2H1])(=[SX1H0])([!H])',
+    'carbothioic s acid': '[#6X3;H0](=[OX1H0])([SX2H1])([!H])',
+    'carboxylate': '[C][C](=[OX1H0])[O-X1H0]',
+    'carboxylic acid': '[CX3](=O)[OX2H1]',
+    'carboxylic anhydride': '[*][CX3H0](=[OX1H0])[OX2H0][CX3H0](=[OX1H0])[*]',
+    'chloroalkane': '[#6][Cl]',
+    'cyanate': '[*][OX2H0][CX2H0]#[NX1H0]',
+    'cyanide': 'C#N',
+    'disulfide': '[#16X2H0][#16X2H0]',
+    'ester': '[OX2H0][#6;!$([C]=[O])]',
+    'ether': '[OD2]([#6])[#6]',
+    'fluoroalkane': '[#6][F]',
+    'haloalkane': '[#6][F,Cl,Br,I]',
+    'hydroperoxide': '[!H][OX2H0][OX2H1]',
+    'imide': '[CX3H0](=[OX1H0])([*])[NX3][CX3H0](=[OX1H0])[*]',
+    'iodoalkane': '[#6][I]',
+    'isocyanate': '[NX2H0]=[CX2H0]=[OX1H0]',
+    'isonitrile': '[!H][NX2H0]=[CX2H0]=[SX1H0]',
+    'isothiocyanate': '[!H][NX2H0]=[CX2H0]=[SX1H0]',
+    'ketone': '[#6][CX3](=O)[#6]',
+    'mercaptan': '[#16X2H]',
+    'methylenedioxy': '[CX4H2;R]([OX2H0;R])([OX2H0;R])',
+    'nitrate': '[OX2][N+X3H0](=[OX1H0])[O-X1H0]',
+    'nitrile': '[NX1]#[CX2]',
+    'nitrite': '[OX2][NX2H0]=[OX1H0]',
+    'nitro': '[$([NX3](=O)=O),$([NX3+](=O)[O-])][!#8]',
+    'nitroso': '[*][NX2]=[OX1H0]',
+    # 'organic': ['[CX4]', '[CX3]=[CX3]', '[CX2]#C', '[c]', '[C][H]', '[C@H]', '[CR]', '[NX3][CX3](=[OX1])[#6]', 'O=C([c,CX4])[$([NH2]),$([NH][c,CX4]),$(N([c,CX4])[c,CX4])]', '[CX3;$([R0][#6]),$([H1R0])](=[OX1])[#7X3;$([H2]),$([H1][#6;!$(C=[O,N,S])]),$([#7]([#6;!$(C=[O,N,S])])[#6;!$(C=[O,N,S])])]', '[*][CX3](=[OX1H0])[NX3]([*])([*])'],
+    'orthocarbonate ester': '[CX4H0]([OX2])([OX2])([OX2])([OX2])',
+    'orthoester': '[*][CX4]([OX2H0])([OX2H0])([OX2H0])',
+    'oxime': '[!H][CX3]([*])=[NX2H0][OX2H1]',
+    'peroxide': '[!H][OX2H0][OX2H0][!H]',
+    'polyol': '[#6][OX2H]',
+    'phenol': '[OX2H][cX3]:[c]',
+    'phosphate': '[PX4;H0](=O)([OX2H])([OX2H])[OX2H0]',
+    'phosphine': '[PX3]',
+    'phosphodiester': '[PX4;H0](=O)([OX2H])([OX2H0])[OX2H0]',
+    'phosphonic acid': '[PX4](=O)([OX2H])[OX2H]',
+    'primary aldimine': '[*][CX3H1]=[NX2H1]',
+    'primary amine': '[CX4][NH2]',
+    'primary ketimine': '[*][CX3H0](=[NX2H1])([*])',
+    'pyridyl': 'c1ccncc1',
+    'quat': '[N+X4]([c,C])([c,C])([c,C])[c,C]',
+    'secondary aldimine': '[*][CX3H1]=[NX2H0]',
+    'secondary amine': '[$([NH]([CX4])[CX4]);!$([NH]([CX4])[CX4][O,N]);!$([NH]([CX4])[CX4][O,N])]',
+    'secondary ketimine': '[*][CX3H0]([*])=[NX2H0]([*])',
+    'siloxane': '[Si][O][Si]',
+    'silyl ether': '[SiX4]([OX2H0])([!H])([!H])[!H]',
+    'sulfide': '[!#16][#16X2H0][!#16]',
+    'sulfinic acid': '[SX3H0](=O)([OX2H])[!H]',
+    'sulfonate ester': '[SX4H0](=O)(=O)([OX2H0])[!H]',
+    'sulfone': '[SX4H0](=O)(=O)([OX2H0])[!H]',
+    'sulfonic acid': '[SX4H0](=O)(=O)([OX2H])[!H]',
+    'sulfoxide': '[$([#16X3]=[OX1]),$([#16X3+][OX1-])]',
+    # 'tertiary amine': ['[ND3]([CX4])([CX4])[CX4]', '[NX3H0+0,NX4H1+;!$([N][!c]);!$([N]*~[#7,#8,#15,#16])]', '[NX3H0+0,NX4H1+;!$([N][!C]);!$([N]*~[#7,#8,#15,#16])]',  '[NX3H0+0,NX4H1+;$([N]([c])([C])[#6]);!$([N]*~[#7,#8,#15,#16])]', '[#6]-[#7](-[#6])-[#6]'],
+    'thial': '[#6X3;H1](=[SX1H0])([!H])',
+    'thiocyanate': '[SX2H0]([!H])[CH0]#[NX1H0]',
+    'thioketone': '[#6X3;H0]([!H])([!H])=[SX1H0]',
+    'thiolester': '[#6X3;H0](=[OX1H0])([*])[SX2H0][!H]',
+    'thionoester': '[#6X3;H0](=[SX1H0])([*])[OX2H0][!H]',
+    # 'organic': ['[C][H]', '[C@H]', '[CR]']
+}
+
+def smarts_to_smiles(smarts):
+    if isinstance(smarts, str):
+        mol = Chem.MolFromSmarts(smarts)
+        if mol is not None:
+            return Chem.MolToSmiles(mol)
+        else:
+            return ""
+        
+    else:
+        result = []
+        for smart in smarts:
+            mol = Chem.MolFromSmarts(smart)
+            if mol is not None:
+                result.append(Chem.MolToSmiles(mol))
+            else:
+                result.append("")
+        return result
+
+def zip_smiles_and_functional_group(groups, smiles):
+    result = ""
+    for group, smi in zip(groups, smiles):
+        result += f" {group} group {smi},"
+    
+    if result[-1] == ",":
+        result = result[:-1]
+    
+    result = result.replace(" ,", ",")
+    return result.strip()
+
+def map_functional_group_cot(smiles_list, mode='simple'):
     mols = [Chem.MolFromSmiles(target) for target in smiles_list]
     functional_group_list = getmembers(functional_groups, isfunction)
     functional_group_list = [(name, function) for name, function in functional_group_list if 'is' in name]
+    functional_group_name_list = [' '.join(name.split('_')[1:]) for name, _ in functional_group_list]
+    functional_group_smiles_dict = {name: smarts_to_smiles(smarts) for name, smarts in functional_group_smarts_dict.items()}
+    
     mol_groups = []
     for mol in mols:
         groups = [name for name, func in functional_group_list if func(mol)]
         groups = [group.split('_')[1] for group in groups]
         mol_groups.append(groups)
-    cot_list = [f" The functional group of the molecule is {', '.join(groups)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups in mol_groups]
+        
+        
+    if mode == 'simple':
+        cot_list = [f" The functional group of the molecule is {', '.join(groups)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups in mol_groups]
+    else:
+        func_group_smiles = [[functional_group_smiles_dict.get(group, "") for group in groups] for groups in mol_groups]
+        cot_list = [f" The functional group of the molecule are{zip_smiles_and_functional_group(groups, smis)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups, smis in zip(mol_groups, func_group_smiles)]
     
     
     return cot_list
@@ -424,126 +567,55 @@ def map_cot_mode(hparams):
     '''
     Map CoT mode to string
     '''
-    # <FIX> Need to be fixed when CoT added
-    cot_mode_multiset = hparams.cot_mode_multiset
-    cot_mode_ring = hparams.cot_mode_ring
-    cot_mode_fragment = hparams.cot_mode_fragment
-    cot_mode_aromaticity = hparams.cot_mode_aromatic
-    cot_mode_chain = hparams.cot_mode_chain
-    cot_mode_ring_name = hparams.cot_mode_ring_name
-    cot_mode_iupac = hparams.cot_mode_iupac
-    cot_mode_con_ring_name = hparams.cot_mode_con_ring_name
-    cot_mode_scaffold = hparams.cot_mode_scaffold
-    cot_mode_functional_group = hparams.cot_mode_functional_group
-    # CoT order: function, scaffold, chain, fragment, ring, multiset, aromatic, ring_name, connected ring name, iupac
-    cot_mode = ""
-    if cot_mode_functional_group:
-        cot_mode += '-fg'
-    if cot_mode_scaffold:
-        cot_mode += '-scaffold'
-    if cot_mode_chain:
-        cot_mode += '-chain'
-    if cot_mode_fragment:
-        cot_mode += '-frag'
-    if cot_mode_ring:
-        cot_mode += '-ring'
-    if cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
-        cot_mode += f'-multiset_{cot_mode_multiset}'
-    if cot_mode_aromaticity:
-        cot_mode += '-arom'
-    if cot_mode_ring_name:
-        cot_mode += '-rname'
-    if cot_mode_con_ring_name:
-        cot_mode += '-conrna'
-    if cot_mode_iupac:
-        cot_mode += '-iupac'
+    cot_mode = hparams.cot_mode
     
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
-    # CoT order: function, scaffold, chain, fragment, ring, multiset, aromatic, ring_name, connected ring name, iupac
-    # <FIX> Need to be fixed when CoT added
-    if 'iupac' in cot_mode:
-        targets = [f"{cot_iupac}{target}" for target, cot_iupac in zip(targets, examples['cot_iupac'])]
-    
-    if 'conrna' in cot_mode:
-        targets = [f"{cot_con_ring_name}{target}" for target, cot_con_ring_name in zip(targets, examples['cot_connected_ring_name'])]
-    
-    if 'rname' in cot_mode:
-        targets = [f"{cot_ring_name}{target}" for target, cot_ring_name in zip(targets, examples['cot_ring_name'])]
-    
-    if 'arom' in cot_mode:
-        targets = [f"{cot_arom}{target}" for target, cot_arom in zip(targets, examples['cot_aromatic'])]
-    
-    if 'multiset' in cot_mode:
-        targets = [f"{cot_multiset}{target}" for target, cot_multiset in zip(targets, examples['cot_multiset'])]
-        
-    if 'ring' in cot_mode:
-        targets = [f"{cot_ring}{target}" for target, cot_ring in zip(targets, examples['cot_ring'])]
-    
-    if 'frag' in cot_mode:
-        targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_fragment'])]
-    
-    if 'chain' in cot_mode:
-        targets = [f"{cot_fragment}{target}" for target, cot_fragment in zip(targets, examples['cot_chain'])]
+    cot_modes = cot_mode.split('-')
+    cot_modes.reverse()
+    for cm in cot_modes:
+        if cm not in TOTAL_COT_MODES:
+            raise ValueError(f"Invalid CoT mode: {cm}")
 
-    if 'scaffold' in cot_mode:
-        targets = [f"{cot_scaffold}{target}" for target, cot_scaffold in zip(targets, examples['cot_scaffold'])]
-    
-    if 'fg' in cot_mode:
-        targets = [f"{cot_fg}{target}" for target, cot_fg in zip(targets, examples['cot_functional_group'])]
-    
+        targets = [f"{cot}{target}" for target, cot in zip(targets, examples[f'cot_{cm}'])]
+
     
     return targets
 
-def add_cot_to_text(eaxmples, targets, direction='forward'):
+def add_cot_to_text(examples, targets, direction='forward'):
     # direction: forward (caption2smiles), backward (smiles2caption)
     if direction == 'forward':
-        targets = [f"{cot}{target}" for target, cot in zip(targets, eaxmples['cot'])]
+        targets = [f"{cot}{target}" for target, cot in zip(targets, examples['cot'])]
     else:
-        targets = [f"{target}{cot}" for target, cot in zip(targets, eaxmples['cot'])]
+        targets = [f"{target}{cot}" for target, cot in zip(targets, examples['cot'])]
     return targets
     
 def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
     run_name = map_cot_mode(hparams)
-    cot_list = ["" for _ in range(len(smiles_list))]
-    if hparams.cot_mode_multiset in ['simple', 'full', 'formula', 'only_type']:
-        multiset_cot_list = map_multiset_cot(smiles_list, mode=hparams.cot_mode_multiset)
-        data_dict['cot_multiset'] = multiset_cot_list
+    cot_list_total = ["" for _ in range(len(smiles_list))]
+    cot_modes = run_name.split('-')
     
-    if hparams.cot_mode_ring:
-        ring_cot_list = map_ring_cot(smiles_list)
-        data_dict['cot_ring'] = ring_cot_list
+    for cm in cot_modes:
+        if cm not in TOTAL_COT_MODES:
+            raise ValueError(f"Invalid CoT mode: {cm}")
+
+        cot_function_dict = {'func_simple': map_functional_group_cot, 'func_smiles': map_functional_group_cot, 'scaffold': map_scaffold_cot, \
+                            'chain': map_carbon_chain_length, 'fragment': map_fragment_cot, 'ring': map_ring_cot, 'multiset_simple': map_multiset_cot, \
+                            'multiset_full': map_multiset_cot, 'multiset_formula': map_multiset_cot, 'multiset_type': map_multiset_cot, \
+                            'aromatic': map_aromatic_ring_cot, 'ring_name': map_ring_name_cot, 'con_ring_name': map_connected_ring_name_cot, \
+                            'iupac': map_iupac_cot, 'double_bond': map_num_double_bond}
+        cot_function = cot_function_dict.get(cm)
+        if ('multiset' in cm) or ('func' in cm):
+            mode = cm.split('_')[1]
+            cot_list = cot_function(smiles_list, mode=mode)
+        else:
+            cot_list = cot_function(smiles_list)
         
-    if hparams.cot_mode_fragment:
-        fragment_cot_list = map_fragment_cot(split)
-        data_dict['cot_fragment'] = fragment_cot_list
-        
-    if hparams.cot_mode_aromatic:
-        aromatic_cot_list = map_aromatic_ring_cot(smiles_list)
-        data_dict['cot_aromatic'] = aromatic_cot_list
-        
-    if hparams.cot_mode_chain:
-        chain_cot_list = map_carbon_chain_length(smiles_list)
-        data_dict['cot_chain'] = chain_cot_list
+        data_dict[f'cot_{cm}'] = cot_list
     
-    if hparams.cot_mode_ring_name:
-        ring_name_cot_list = map_ring_name_cot(smiles_list)
-        data_dict['cot_ring_name'] = ring_name_cot_list
     
-    if hparams.cot_mode_iupac:
-        iupac_cot_list = map_iupac_cot(smiles_list)
-        data_dict['cot_iupac'] = iupac_cot_list
-        
-    if hparams.cot_mode_con_ring_name:
-        ring_name_cot_list = map_connected_ring_name_cot(smiles_list)
-        data_dict['cot_connected_ring_name'] = ring_name_cot_list
-        
-    if hparams.cot_mode_functional_group:
-        fg_cot_list = map_functional_group_cot(smiles_list)
-        data_dict['cot_functional_group'] = fg_cot_list
-    
-    cot_list = add_cot_to_target(data_dict, cot_list, run_name)
+    cot_list = add_cot_to_target(data_dict, cot_list_total, run_name)
     data_dict['cot'] = cot_list
     
     return data_dict

@@ -83,16 +83,10 @@ class FineTuneAnswer(FineTuneTranslator):
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
-        parser.add_argument("--cot_mode_multiset", type=str, default='None')
-        parser.add_argument("--cot_mode_fragment", action='store_true')
-        parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--cot_mode_aromatic", action='store_true')
-        parser.add_argument("--cot_mode_chain", action='store_true')
-        parser.add_argument("--cot_mode_ring_name", action='store_true')
-        parser.add_argument("--cot_mode_iupac", action='store_true')
-        parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-        parser.add_argument("--cot_mode_scaffold", action='store_true')
-        parser.add_argument("--cot_mode_functional_group", action='store_true')
+        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+                        help="Choices: func, scaffold, chain, fragment, ring, \
+                            multiset_simple/full/formula/type \
+                            aromatic, ring_name, con_ring_name, iupac")
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=1)

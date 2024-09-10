@@ -24,7 +24,7 @@ import json
 from accelerate import Accelerator
 
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_ring_cot, map_multiset_cot, map_fragment_cot, map_cot_mode, add_cot_to_target, map_aromatic_ring_cot, map_carbon_chain_length, map_ring_name_cot, map_iupac_cot, map_connected_ring_name_cot, map_scaffold_cot, map_functional_group_cot, add_cot_to_text, map_cot_to_smiles_list
+from util_cot import map_cot_mode, add_cot_to_text, map_cot_to_smiles_list
 from analysis import compute_cot_accuracy
 from util import selfies_to_smiles
 
@@ -106,18 +106,22 @@ class FineTuneTranslator(pl.LightningModule):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
-        parser.add_argument("--cot_mode_multiset", type=str, default='None')
-        parser.add_argument("--cot_mode_fragment", action='store_true')
-        parser.add_argument("--cot_mode_ring", action='store_true')
-        parser.add_argument("--cot_mode_aromatic", action='store_true')
-        parser.add_argument("--cot_mode_chain", action='store_true')
-        parser.add_argument("--cot_mode_ring_name", action='store_true')
-        parser.add_argument("--cot_mode_iupac", action='store_true')
-        parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-        parser.add_argument("--cot_mode_scaffold", action='store_true')
-        parser.add_argument("--cot_mode_functional_group", action='store_true')
+        # parser.add_argument("--cot_mode_multiset", type=str, default='None')
+        # parser.add_argument("--cot_mode_fragment", action='store_true')
+        # parser.add_argument("--cot_mode_ring", action='store_true')
+        # parser.add_argument("--cot_mode_aromatic", action='store_true')
+        # parser.add_argument("--cot_mode_chain", action='store_true')
+        # parser.add_argument("--cot_mode_ring_name", action='store_true')
+        # parser.add_argument("--cot_mode_iupac", action='store_true')
+        # parser.add_argument("--cot_mode_con_ring_name", action='store_true')
+        # parser.add_argument("--cot_mode_scaffold", action='store_true')
+        # parser.add_argument("--cot_mode_functional_group", action='store_true')
+        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+                        help="Choices: func, scaffold, chain, fragment, ring, \
+                            multiset_simple/full/formula/type \
+                            aromatic, ring_name, con_ring_name, iupac")
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=2)
@@ -129,7 +133,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
 
@@ -155,6 +159,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             log = state.log_history[-1]
             if 'loss' in log.keys():
                 self._wandb.log({"train/loss": log['loss']})
+                self._wandb.log({"epoch": state.epoch})
     
     def log_smiles_results(self, file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds):
         
