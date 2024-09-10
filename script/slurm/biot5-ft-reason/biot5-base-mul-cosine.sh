@@ -1,7 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J reason-biobase-mul
-#SBATCH -p A6000
+#SBATCH -J reason-biobase-mul-cosine
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -28,8 +29,8 @@ srun python model/reasoning_generator.py \
 --cot_mode_con_ring_name \
 --cot_mode_functional_group \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 32 \
+--eval_batch_size 32 \
 --epochs 250 \
 --model_id QizhiPei \
 --weight_decay 0 \
