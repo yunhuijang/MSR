@@ -1,7 +1,8 @@
 #!/bin/sh
 
 #SBATCH -J ft-biobase-mul-m2t
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
