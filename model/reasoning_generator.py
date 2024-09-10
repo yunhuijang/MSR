@@ -87,7 +87,7 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}-new.txt'
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}-new-{self.hparams.lr_scheduler_type}.txt'
             description_list = self.test_dataset['description']
             gt_cot = decoded_labels
             predicted_cot = decoded_preds
