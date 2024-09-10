@@ -168,7 +168,9 @@ if __name__ == "__main__":
         do_train=True,
         generation_max_length=hparams.max_length,
         save_strategy='epoch',
-        load_best_model_at_end=True
+        load_best_model_at_end=True,
+        warmup_ratio=hparams.warmup_ratio,
+        lr_scheduler_type=hparams.lr_scheduler_type
     )
 
     accelerator = Accelerator()
