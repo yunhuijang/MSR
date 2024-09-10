@@ -1,8 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J ft-biobasemolin-mul-m2t
-#SBATCH -p A100-80GB
-#SBATCH -q add_hpgpu
+#SBATCH -J answer-base-mul
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -21,20 +20,18 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator_mol2text.py \
---architecture biot5-plus-base-mol-instructions-molecule \
+srun python model/answer_generator.py \
+--architecture molt5-base \
 --cot_mode func_simple-chain-aromatic-con_ring_name \
 --wandb_mode online \
---train_batch_size 32 \
---eval_batch_size 32 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei \
---weight_decay 0 \
---learning_rate 1e-3 \
---warmup_ratio 0.1 \
+--max_length 512 \
+--model_id laituan245 \
+--max_length 820 \
 --check_val_every_n_epoch 5 \
---lr_scheduler_type cosine \
---max_length 820
+--is_iterative
 
 
 

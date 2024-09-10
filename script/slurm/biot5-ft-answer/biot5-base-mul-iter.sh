@@ -23,11 +23,7 @@ nvidia-smi
 
 srun python model/answer_generator.py \
 --architecture biot5-plus-base \
---cot_mode_multiset None \
---cot_mode_aromatic \
---cot_mode_chain \
---cot_mode_con_ring_name \
---cot_mode_functional_group \
+--cot_mode multiset_formula-func_simple-chain-aromatic-con_ring_name-double_bond \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \

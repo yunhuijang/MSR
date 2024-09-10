@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-biobase-mulformdouble-m2t
+#SBATCH -J ft-biobase-mul-order-m2t
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
@@ -23,7 +23,6 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-base \
---cot_mode_multiset None \
 --cot_mode aromatic-con_ring_name-chain-func_simple \
 --wandb_mode online \
 --train_batch_size 32 \

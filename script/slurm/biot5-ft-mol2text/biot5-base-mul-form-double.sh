@@ -23,7 +23,6 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-base \
---cot_mode_multiset None \
 --cot_mode multiset_formula-func_simple-chain-aromatic-con_ring_name-double_bond \
 --wandb_mode online \
 --train_batch_size 32 \
