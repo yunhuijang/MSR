@@ -245,7 +245,8 @@ if __name__ == "__main__":
         generation_max_length=hparams.max_length,
         load_best_model_at_end=True,
         save_strategy='epoch',
-        warmup_ratio=0.02
+        warmup_ratio=hparams.warmup_ratio,
+        lr_scheduler_type=hparams.lr_scheduler_type
     )
 
     accelerator = Accelerator()
