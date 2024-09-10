@@ -139,8 +139,10 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                         else:
                             final_predicted_smiles.append(new_predicted_smiles.pop(0))
                     predicted_smiles = final_predicted_smiles
-                    
-            file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            if self.hparams.is_iterative:
+                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-iter.txt'
+            else:
+                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             
             with open(f'{file_name}', 'w') as f:
