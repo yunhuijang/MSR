@@ -25,8 +25,8 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-base \
 --cot_mode multiset_formula-func_simple-chain-aromatic-con_ring_name \
 --wandb_mode online \
---train_batch_size 32 \
---eval_batch_size 32 \
+--train_batch_size 16 \
+--eval_batch_size 16 \
 --epochs 250 \
 --model_id QizhiPei \
 --weight_decay 0 \
