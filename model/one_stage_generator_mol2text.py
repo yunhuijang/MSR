@@ -86,12 +86,15 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
+        parser.add_argument('--max_new_tokens', type=int, default=512)
+        parser.add_argument('--generation_mode', action='store_true')
 
         return parser
 
 class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
     def __init__(self, trainer, tokenizer, test_dataset, hparams):
-        super().__init__(trainer, tokenizer, test_dataset, hparams) 
+        super().__init__(trainer, tokenizer, test_dataset, hparams)
+        self.model = self.trainer.model
     
     def log_description_results(self, file_name, smiles_list, gt_description, predicted_description):
         
@@ -118,32 +121,70 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
                 "ROUGEL": round(rouge_l, 3), "METEOR": round(meteor_score, 3)
                 }
         self._wandb.log(result)
+        
+        
+    def tokenize_dataset(self, examples):
+        inputs = examples["smiles"]
+        cot_mode = map_cot_mode(self.hparams)
+        if self.base_arch == 'biot5':
+            # add instruction to input
+            task_definition = 'Definition: You are given a molecule SELFIES and its structural information. Your job is to generate the molecule description in English that fits the molecule SELFIES.\n\n'
+
+            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
+            
+        if cot_mode != "":
+            inputs = [f" {smiles}" for smiles in inputs]
+        inputs = add_cot_to_text(examples, inputs, 'backward')
+        inputs = [inp.strip() for inp in inputs]
+        if self.base_arch == 'biot5':
+            inputs = [inp + "\nOutput: " for inp in inputs]
+        model_inputs = self.tokenizer(inputs, max_length=self.hparams.max_length, truncation=True)
+        return model_inputs
+    
     
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start evaluation")
-            # generate predictions
-            predictions = self.trainer.predict(self.test_dataset)
-            preds, labels = predictions.predictions, predictions.label_ids
+            # # generate predictions
+            # inputs = self.test_dataset
+            # output = self.model.generate(self.test_dataset_tokenized['input_ids'], max_length=self.hparams.max_length)
+            # print('hi')
             run_name = map_cot_mode(self.hparams)
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-            preds = preds.astype(int)
-            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+            
+            if self.hparams.generation_mode:
+                decoded_preds = []
+                input_id_list = self.tokenize_dataset(self.test_dataset).input_ids
+                for input_ids in tqdm(input_id_list, 'Generation'):
+                    input_id = torch.tensor(input_ids).unsqueeze(0).to(self.trainer.model.device)
+                    output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens)
+                    preds = self.tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
+                    if isinstance(preds, list):
+                        output = preds[0]
+                    decoded_preds.append(output)
+                decoded_labels = self.test_dataset['description']
+            else:
+                predictions = self.trainer.predict(self.test_dataset)
+                preds, labels = predictions.predictions, predictions.label_ids
+                if isinstance(preds, tuple):
+                    preds = preds[0]
+                preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+                preds = preds.astype(int)
+                decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+                decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
-
-            file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
-            smiles_list = self.test_dataset['smiles']
-
+                
             gt_description = decoded_labels
             predicted_description = decoded_preds
             
+                
+                
+            file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            smiles_list = self.test_dataset['smiles']
+
             self.log_description_results(file_name, smiles_list, gt_description, predicted_description)
             
 

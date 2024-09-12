@@ -46,16 +46,16 @@ class FineTuneTranslator(pl.LightningModule):
         if self.base_arch == 'biot5':
             with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
                 data = json.load(f)
-            description_list = [d['input'] for d in data['Instances']]
-            gt_selfies_list = [d['output'][0] for d in data['Instances']]
-            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
-            id_list = [d['id'] for d in data['Instances']]
+            description_list = [d['input'] for d in data['Instances']][:10]
+            gt_selfies_list = [d['output'][0] for d in data['Instances']][:10]
+            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list][:10]
+            id_list = [d['id'] for d in data['Instances']][:10]
             data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
         else:
             smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
             smiles_pair_list = [
             [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-            ][1:]
+            ][1:][:10]
             description_list = [pair[2] for pair in smiles_pair_list]
             gt_smiles_list = [pair[1] for pair in smiles_pair_list]
             id_list = [pair[0] for pair in smiles_pair_list]
@@ -106,7 +106,7 @@ class FineTuneTranslator(pl.LightningModule):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
         # parser.add_argument("--cot_mode_multiset", type=str, default='None')
         # parser.add_argument("--cot_mode_fragment", action='store_true')
@@ -118,14 +118,14 @@ class FineTuneTranslator(pl.LightningModule):
         # parser.add_argument("--cot_mode_con_ring_name", action='store_true')
         # parser.add_argument("--cot_mode_scaffold", action='store_true')
         # parser.add_argument("--cot_mode_functional_group", action='store_true')
-        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=2)
-        parser.add_argument("--eval_batch_size", type=int, default=2)
+        parser.add_argument("--train_batch_size", type=int, default=3)
+        parser.add_argument("--eval_batch_size", type=int, default=3)
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
@@ -133,9 +133,11 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
+        parser.add_argument('--max_new_tokens', type=int, default=512)
+        parser.add_argument('--generation_mode', action='store_true')
 
         return parser
 
@@ -159,7 +161,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             log = state.log_history[-1]
             if 'loss' in log.keys():
                 self._wandb.log({"train/loss": log['loss']})
-                self._wandb.log({"epoch": state.epoch})
+                # self._wandb.log({"epoch": state.epoch})
     
     def log_smiles_results(self, file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds):
         
@@ -229,43 +231,78 @@ class WandbPredictionProgressCallback(WandbCallback):
                 }
         self._wandb.log(result)
     
+    def tokenize_dataset(self, examples): 
+        inputs = examples["description"]
+        cot_mode = map_cot_mode(self.hparams)
+        targets = examples['smiles']
+        if self.base_arch == 'biot5':
+            # add instruction to input
+            task_definition = 'Definition: You are given a molecule description in English. Your job is to generate the molecule SELFIES that fits the description.\n\n'
+            inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
+        
+        if cot_mode != "":
+            targets = [f" {target}" for target in targets]
+        targets = add_cot_to_text(examples, targets, 'forward')
+        if self.base_arch == 'biot5':
+            targets = [" ".join(target.split(' ')[:-1]) + "\nOutput: "+ target.split(' ')[-1] for target in targets]
+            targets = [target.strip() for target in targets]
+        model_inputs = self.tokenizer(inputs, max_length=self.hparams.max_length, truncation=True)
+        return model_inputs
+    
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start evaluation")
             # generate predictions
-            predictions = self.trainer.predict(self.test_dataset)
-            preds, labels = predictions.predictions, predictions.label_ids
             run_name = map_cot_mode(self.hparams)
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-            preds = preds.astype(int)
-            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+            if self.hparams.generation_mode:
+                decoded_preds = []
+                input_id_list = self.tokenize_dataset(self.test_dataset).input_ids
+                for input_ids in tqdm(input_id_list, 'Generation'):
+                    input_id = torch.tensor(input_ids).unsqueeze(0).to(self.trainer.model.device)
+                    output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens)
+                    preds = self.tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
+                    if isinstance(preds, list):
+                        output = preds[0]
+                    decoded_preds.append(output)
+                if self.base_arch == 'biot5':
+                    decoded_labels = [cot + "\nOutput: " + smi for cot, smi in zip(self.test_dataset['cot'], self.test_dataset['smiles'])]
+                else:
+                    decoded_labels = [cot + " " + smi for cot, smi in zip(self.test_dataset['cot'], self.test_dataset['smiles'])]
+            else:
+                predictions = self.trainer.predict(self.test_dataset)
+                preds, labels = predictions.predictions, predictions.label_ids
+                if isinstance(preds, tuple):
+                    preds = preds[0]
+                preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+                preds = preds.astype(int)
+                decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+                decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
             file_name = f'predictions/ft_cot/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
 
+            gt_smiles = self.test_dataset['smiles']
             if self.base_arch == 'biot5':
                 # selfies to smiles
-                gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
+                # gt_selfies = [dl[dl.find('Output:')+len('Output:'):].replace(" ", "") for dl in decoded_labels]
                 # gt_selfies = decoded_labels
-                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in gt_selfies]
+                # gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in gt_selfies]
+                # gt_smiles = self.test_dataset['smiles']
                 predicted_selfies =  [dp[dp.find('Output:')+len('Output:'):] if dp.find('Output:') > -1 else dp for dp in decoded_preds]
                 # predicted_selfies = decoded_preds
                 predicted_selfies = [dp.replace(" ", "") for dp in predicted_selfies]
                 predicted_smiles = [selfies_to_smiles(sf) for sf in predicted_selfies]
             else:
                 if run_name == "":
-                    gt_smiles = decoded_labels
+                    # gt_smiles = self.test_dataset['smiles']
                     predicted_smiles = decoded_preds
                 else:
-                    gt_smiles = [dl.split(' ')[-1] for dl in decoded_labels]
+                    # gt_smiles = self.test_dataset['smiles']
                     predicted_smiles = [dp.split(' ')[-1] for dp in decoded_preds]
             
             self.log_smiles_results(file_name, description_list, gt_smiles, predicted_smiles, decoded_labels, decoded_preds)
