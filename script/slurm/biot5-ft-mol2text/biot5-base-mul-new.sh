@@ -1,7 +1,8 @@
 #!/bin/sh
 
 #SBATCH -J ft-biobase-mul-m2t-new
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -22,10 +23,10 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-base \
---cot_mode \
+--cot_mode multiset_formula-func_simple-chain-aromatic-con_ring_name \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 16 \
+--eval_batch_size 16 \
 --epochs 250 \
 --model_id QizhiPei \
 --weight_decay 0 \
