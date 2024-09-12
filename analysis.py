@@ -231,44 +231,16 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         print(f'Analysis for {mode}')
         cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
         cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
-        if mode == 'ring':
-            gt_info_list = [map_ring_size_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_ring_size_from_cot(pred) for pred in cur_predicted_cot_list]
-        elif ('simple' in mode) or ('full' in mode):
-            gt_info_list = [map_multiset_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_multiset_from_cot(pred) for pred in cur_predicted_cot_list]
-        elif 'form' in mode:
-            gt_info_list = [map_form_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_form_from_cot(pred) for pred in cur_predicted_cot_list]
-        elif 'only_type' in mode:
-            gt_info_list = [map_type_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_type_from_cot(pred) for pred in cur_predicted_cot_list]
-            is_only_count = True
-        elif mode == 'arom':
-            gt_info_list = [map_arom_num_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_arom_num_from_cot(pred) for pred in cur_predicted_cot_list]
-            is_only_count = True
-        elif mode == 'chain':
-            gt_info_list = [map_chain_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_chain_from_cot(pred) for pred in cur_predicted_cot_list]
-            is_only_count = True
-        elif mode == 'iupac':
-            gt_info_list = [map_iupac_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_iupac_from_cot(pred) for pred in cur_predicted_cot_list]
-            is_only_count = True
-        elif mode == 'rname':
-            gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
-        elif mode == 'conrna':
-            gt_info_list = [map_ring_name_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_ring_name_from_cot(pred) for pred in cur_predicted_cot_list]
-        elif mode == 'scaffold':
-            gt_info_list = [map_scaffold_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_scaffold_from_cot(pred) for pred in cur_predicted_cot_list]
-            is_only_count = True
-        elif mode == 'fg':
-            gt_info_list = [map_functional_group_from_cot(gt) for gt in cur_gt_cot_list]
-            pred_info_list = [map_functional_group_from_cot(pred) for pred in cur_predicted_cot_list]
+        
+        cot_function_dict = {'func_simple': map_functional_group_from_cot, 'func_smiles': map_functional_group_from_cot, 'scaffold': map_scaffold_from_cot, \
+                        'chain': map_chain_from_cot, 'fragment': map_fragment_cot, 'ring': map_ring_size_from_cot, 'multiset_simple': map_multiset_from_cot, \
+                        'multiset_full': map_multiset_from_cot, 'multiset_formula': map_form_from_cot, 'multiset_type': map_type_from_cot, \
+                        'aromatic': map_arom_num_from_cot, 'ring_name': map_ring_name_from_cot, 'con_ring_name': map_ring_name_from_cot, \
+                        'iupac': map_iupac_from_cot, 'double_bond': map_num_double_bond}
+        
+        gt_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_gt_cot_list]
+        pred_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_predicted_cot_list]
+        if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles']:
             is_only_count = True
         
         
