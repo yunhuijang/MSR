@@ -29,7 +29,8 @@ srun python model/one_stage_generator_mol2text.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id laituan245 \
---run_id r46sb60x
+--run_id r46sb60x \
+--check_val_every_n_epoch 5
 
 
 
