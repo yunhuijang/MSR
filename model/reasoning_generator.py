@@ -9,7 +9,7 @@ os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from accelerate import Accelerator
-
+from tqdm import tqdm
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
 from analysis import compute_cot_accuracy
@@ -38,17 +38,7 @@ class FineTuneReasoning(FineTuneTranslator):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-base')
-        # parser.add_argument("--cot_mode_multiset", type=str, default='None')
-        # parser.add_argument("--cot_mode_fragment", action='store_true')
-        # parser.add_argument("--cot_mode_ring", action='store_true')
-        # parser.add_argument("--cot_mode_aromatic", action='store_true')
-        # parser.add_argument("--cot_mode_chain", action='store_true')
-        # parser.add_argument("--cot_mode_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_iupac", action='store_true')
-        # parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_scaffold", action='store_true')
-        # parser.add_argument("--cot_mode_functional_group", action='store_true')
-        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -66,6 +56,8 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
+        parser.add_argument('--max_new_tokens', type=int, default=512)
+        parser.add_argument('--generation_mode', action='store_true')
 
         return parser
     
@@ -74,24 +66,52 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
     def __init__(self, trainer, tokenizer, test_dataset, hparams):
         super(WandbReasoningProgressCallback, self).__init__(trainer, tokenizer, test_dataset, hparams)
 
+    def tokenize_dataset(self, examples):
+        inputs = examples["description"]
+        # targets = examples['smiles']
+        
+        targets = ["" for _ in range(len(inputs))]
+        
+        cot_mode = map_cot_mode(self.hparams)
+        targets = add_cot_to_target(examples, targets, cot_mode)
+
+        targets = [target[1:] for target in targets]
+        
+        model_inputs = self.tokenizer(inputs, max_length=self.hparams.max_length, truncation=True)
+        return model_inputs
+    
+    
     def on_evaluate(self, args, state, control, **kwargs):
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start Reasoning Evaluation")
             # generate predictions
-            predictions = self.trainer.predict(self.test_dataset)
-            preds, labels = predictions.predictions, predictions.label_ids
             
-            if isinstance(preds, tuple):
-                preds = preds[0]
-            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+            if self.hparams.generation_mode:
+                decoded_preds = []
+                input_id_list = self.tokenize_dataset(self.test_dataset).input_ids
+                for input_ids in tqdm(input_id_list, 'Generation'):
+                    input_id = torch.tensor(input_ids).unsqueeze(0).to(self.trainer.model.device)
+                    output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens)
+                    preds = self.tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
+                    if isinstance(preds, list):
+                        output = preds[0]
+                    decoded_preds.append(output)
+                decoded_labels = self.test_dataset['cot']
+            else:
+                predictions = self.trainer.predict(self.test_dataset)
+                preds, labels = predictions.predictions, predictions.label_ids
+                
+                if isinstance(preds, tuple):
+                    preds = preds[0]
+                preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+                decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+                labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+                decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
 
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}-new-{self.hparams.lr_scheduler_type}.txt'
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             gt_cot = decoded_labels
             predicted_cot = decoded_preds

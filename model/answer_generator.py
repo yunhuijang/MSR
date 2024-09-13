@@ -18,6 +18,8 @@ from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
 from util_cot import map_cot_mode, map_cot_to_smiles_list
 from util import selfies_to_smiles
+from tqdm import tqdm
+
 
 class FineTuneAnswer(FineTuneTranslator):
     def __init__(self, hparams):
@@ -83,18 +85,18 @@ class FineTuneAnswer(FineTuneTranslator):
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
-        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+        parser.add_argument("--cot_mode", type=str, default='func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
-        parser.add_argument("--train_batch_size", type=int, default=1)
-        parser.add_argument("--eval_batch_size", type=int, default=1)
-        parser.add_argument("--weight_decay", type=float, default=0.01)
+        parser.add_argument("--train_batch_size", type=int, default=3)
+        parser.add_argument("--eval_batch_size", type=int, default=3)
+        parser.add_argument("--weight_decay", type=float, default=0)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=5)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
@@ -102,8 +104,10 @@ class FineTuneAnswer(FineTuneTranslator):
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
-        parser.add_argument('--warmup_ratio', type=float, default=0)
-        parser.add_argument('--lr_scheduler_type', type=str, default='linear')
+        parser.add_argument('--warmup_ratio', type=float, default=0.1)
+        parser.add_argument('--lr_scheduler_type', type=str, default='cosine')
+        parser.add_argument('--max_new_tokens', type=int, default=512)
+        parser.add_argument('--generation_mode', action='store_true')
 
 
         return parser
@@ -119,7 +123,7 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
             print("Start Answer Evaluation")
             # generate predictions
             generation_index = range(len(self.test_dataset))
-            gt_smiles, predicted_smiles = self.generaate_samples(generation_index)
+            gt_smiles, predicted_smiles = self.generaate_samples(generation_index, generation_mode=self.hparams.generation_mode)
             
             if self.hparams.is_iterative and state.epoch > 10:
                 num_iter = 0
@@ -129,7 +133,7 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     data_dict = map_cot_to_smiles_list(predicted_smiles, self.hparams, data_dict, 'test')
                     generation_index_bool = [pred_info != true_info for pred_info, true_info in zip(data_dict['cot'], cot_list)]
                     generation_index = [i for i, x in enumerate(generation_index_bool) if x]
-                    _, new_predicted_smiles = self.generaate_samples(generation_index)
+                    _, new_predicted_smiles = self.generaate_samples(generation_index, generation_mode=self.hparams.generation_mode)
                     final_predicted_smiles = []
                     for index, gi_bool in enumerate(generation_index_bool):
                         # matching CoT -> keep the predicted smiles
@@ -175,18 +179,30 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     }
             self._wandb.log(result)
             
-    def generaate_samples(self, generation_index):
+    def generaate_samples(self, generation_index, generation_mode=False):
         dataset = Dataset.from_dict(self.test_dataset[generation_index])
-        predictions = self.trainer.predict(dataset)
-        preds, labels = predictions.predictions, predictions.label_ids
-        
-        if isinstance(preds, tuple):
-            preds = preds[0]
-        preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
-        decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
+        if generation_mode:
+            decoded_preds = []
+            input_id_list = self.tokenize_dataset(dataset).input_ids
+            for input_ids in tqdm(input_id_list, 'Generation'):
+                input_id = torch.tensor(input_ids).unsqueeze(0).to(self.trainer.model.device)
+                output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens)
+                preds = self.tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
+                if isinstance(preds, list):
+                    output = preds[0]
+                decoded_preds.append(output)
+            decoded_labels = dataset['smiles']
+        else:
+            predictions = self.trainer.predict(dataset)
+            preds, labels = predictions.predictions, predictions.label_ids
+            
+            if isinstance(preds, tuple):
+                preds = preds[0]
+            preds = np.where(preds != -100, preds, self.tokenizer.pad_token_id)
+            decoded_preds = self.tokenizer.batch_decode(preds, skip_special_tokens=True)
 
-        labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
-        decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+            labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
+            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
         decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
         
