@@ -19,7 +19,7 @@ from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmilesFromSmiles
 from thermo import functional_groups
 from inspect import getmembers, isfunction
 from rdkit.Chem.rdchem import EditableMol
-
+from rdkit.Chem import FindMolChiralCenters
 
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
@@ -194,6 +194,14 @@ def map_num_double_bond(smiles_list):
     bond_list = [mol.GetBonds() if mol is not None else [] for mol in mols]
     nums = [sum([b.GetBondType()==Chem.BondType.DOUBLE for b in list(bonds)]) for bonds in bond_list]
     cot_list = [f" The molecule has {num} double bonds." for num in nums]
+    return cot_list
+
+def map_chiral_center_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(s) for s in smiles_list]
+    chiral_centers = [FindMolChiralCenters(mol) if mol is not None else [("","")] for mol in mols]
+    r_count = [len([c for c in chiral if c[1] == 'R']) for chiral in chiral_centers]
+    s_count = [len([c for c in chiral if c[1] == 'S']) for chiral in chiral_centers]
+    cot_list = [f" The molecule has {rc+sc} chiral centers: {sc} with S configuration and {rc} with R configuration." for rc, sc in zip(r_count, s_count)]
     return cot_list
 
 def map_symbol(mol, index, i, ring_size):
