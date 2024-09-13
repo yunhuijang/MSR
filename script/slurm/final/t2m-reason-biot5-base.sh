@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J mollarge-final-t2m-reason
+#SBATCH -J biobase-final-t2m-reason
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
