@@ -26,7 +26,7 @@ from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
 TOTAL_COT_MODES = ['func_simple', 'func_smiles', 'scaffold', 'chain', 'fragment', 'ring', 'multiset_simple', \
             'multiset_full', 'multiset_formula', 'multiset_type', 'aromatic', 'ring_name',  \
-            'con_ring_name', 'iupac', 'double_bond']
+            'con_ring_name', 'iupac', 'double_bond', 'chiral']
 
 
 def flatten(xss):
@@ -623,7 +623,7 @@ def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
                             'chain': map_carbon_chain_length, 'fragment': map_fragment_cot, 'ring': map_ring_cot, 'multiset_simple': map_multiset_cot, \
                             'multiset_full': map_multiset_cot, 'multiset_formula': map_multiset_cot, 'multiset_type': map_multiset_cot, \
                             'aromatic': map_aromatic_ring_cot, 'ring_name': map_ring_name_cot, 'con_ring_name': map_connected_ring_name_cot, \
-                            'iupac': map_iupac_cot, 'double_bond': map_num_double_bond}
+                            'iupac': map_iupac_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_center_cot}
         cot_function = cot_function_dict.get(cm)
         if ('multiset' in cm) or ('func' in cm):
             mode = cm.split('_')[1]
