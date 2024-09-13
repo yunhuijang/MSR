@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-biobaseche-mulform-m2t-genmode
+#SBATCH -J ft-biobaseche-m2t-genmode
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
