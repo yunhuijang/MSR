@@ -575,6 +575,8 @@ def add_cot_to_target(examples, targets, cot_mode):
     cot_modes = cot_mode.split('-')
     cot_modes.reverse()
     for cm in cot_modes:
+        if cm == '':
+            break
         if cm not in TOTAL_COT_MODES:
             raise ValueError(f"Invalid CoT mode: {cm}")
 
@@ -597,7 +599,11 @@ def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
     cot_modes = run_name.split('-')
     
     for cm in cot_modes:
+        if cm == '':
+            break
+        
         if cm not in TOTAL_COT_MODES:
+
             raise ValueError(f"Invalid CoT mode: {cm}")
 
         cot_function_dict = {'func_simple': map_functional_group_cot, 'func_smiles': map_functional_group_cot, 'scaffold': map_scaffold_cot, \
