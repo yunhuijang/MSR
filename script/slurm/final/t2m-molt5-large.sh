@@ -1,7 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J ft-biolarge-sca
+#SBATCH -J mollarge-final-t2m
 #SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -21,15 +22,17 @@ date
 nvidia-smi
 
 srun python model/one_stage_generator.py \
---architecture biot5-plus-large \
---cot_mode_multiset None \
---cot_mode_scaffold \
+--architecture molt5-large \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei \
---run_id ih5xphie
+--model_id laituan245 \
+--max_length 820 \
+--generation_mode \
+--max_new_tokens 768 \
+--check_val_every_n_epoch 10
 
 
 

@@ -107,17 +107,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
-                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
-        # parser.add_argument("--cot_mode_multiset", type=str, default='None')
-        # parser.add_argument("--cot_mode_fragment", action='store_true')
-        # parser.add_argument("--cot_mode_ring", action='store_true')
-        # parser.add_argument("--cot_mode_aromatic", action='store_true')
-        # parser.add_argument("--cot_mode_chain", action='store_true')
-        # parser.add_argument("--cot_mode_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_iupac", action='store_true')
-        # parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_scaffold", action='store_true')
-        # parser.add_argument("--cot_mode_functional_group", action='store_true')
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20'])
         parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
@@ -248,6 +238,8 @@ class WandbPredictionProgressCallback(WandbCallback):
             targets = [target.strip() for target in targets]
         model_inputs = self.tokenizer(inputs, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
+    
+    
     
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)

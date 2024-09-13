@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t5-base-multi_full
+#SBATCH -J t5-large-multi_full
 #SBATCH -p A5000
 #SBATCH --gres=gpu:1
 #SBATCH -o sbatch_log/%x.out

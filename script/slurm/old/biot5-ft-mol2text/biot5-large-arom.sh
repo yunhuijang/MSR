@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J ft-llama-full
+#SBATCH -J ft-biolarge-arom-m2t
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -20,16 +20,16 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator_llama.py \
---architecture llama \
---cot_mode_multiset full \
+srun python model/one_stage_generator_mol2text.py \
+--architecture biot5-plus-large \
+--cot_mode_multiset None \
+--cot_mode_aromatic \
 --wandb_mode online \
---train_batch_size 4 \
---eval_batch_size 4 \
---gen_batch_size 32 \
---epochs 3 \
---max_length 512 \
---run_id 2x27hlnm
+--train_batch_size 8 \
+--eval_batch_size 8 \
+--epochs 250 \
+--model_id QizhiPei
+
 
 
 

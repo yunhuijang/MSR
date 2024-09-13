@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J t5-large-multi_full-ring
-#SBATCH -p A5000
-#SBATCH --gres=gpu:1
+#SBATCH -J ft-llama-full-ring
+#SBATCH -p A100-80GB
+#SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
@@ -20,8 +20,17 @@ date
 
 nvidia-smi
 
-srun python test.py \
---architecture t5-v1_1-large \
+srun python model/one_stage_generator_llama.py \
+--architecture llama \
 --cot_mode_multiset full \
---cot_mode_ring
+--cot_mode_ring \
+--wandb_mode online \
+--train_batch_size 4 \
+--eval_batch_size 4 \
+--gen_batch_size 32 \
+--epochs 3 \
+--max_length 512
+
+
+
 

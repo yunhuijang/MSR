@@ -1,7 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J reason-base-mul-carbon
-#SBATCH -p A6000
+#SBATCH -J mollarge-final-t2m-reason
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -21,18 +22,17 @@ date
 nvidia-smi
 
 srun python model/reasoning_generator.py \
---architecture molt5-base \
---cot_mode_multiset None \
---cot_mode_aromatic \
---cot_mode_chain \
---cot_mode_con_ring_name \
---cot_mode_functional_group \
+--architecture biot5-plus-base \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 16 \
+--eval_batch_size 16 \
 --epochs 250 \
---max_length 512 \
---model_id laituan245
+--model_id laituan245 \
+--max_length 820 \
+--generation_mode \
+--max_new_tokens 256 \
+--check_val_every_n_epoch 10
 
 
 
