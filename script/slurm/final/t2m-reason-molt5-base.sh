@@ -28,7 +28,7 @@ srun python model/reasoning_generator.py \
 --train_batch_size 16 \
 --eval_batch_size 16 \
 --epochs 250 \
---model_id QizhiPei \
+--model_id laituan245 \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 256 \
