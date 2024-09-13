@@ -84,7 +84,8 @@ class FineTuneAnswer(FineTuneTranslator):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
-                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
+                                                                                        'biot5-plus-base-chebi20'])
         parser.add_argument("--cot_mode", type=str, default='func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
