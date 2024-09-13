@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J answer-biobase-mul
+#SBATCH -J answer-biochebase-mul
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
