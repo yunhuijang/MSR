@@ -91,9 +91,9 @@ def map_arom_num_from_cot(cot):
     else:
         try:
             if cot[0] == ' ':
-                return int(cot.split(' ')[3])
+                return int(cot.split(' ')[4])
             else:
-                return int(cot.split(' ')[2])
+                return int(cot.split(' ')[3])
         except:
             logging.warning(f"Error in mapping aromatic ring number from CoT: {cot}")
             return 100
@@ -192,8 +192,8 @@ def map_scaffold_from_cot(cot):
     return scaffold
 
 def map_functional_group_from_cot(cot):
-    if "The functional group of the molecule is" in cot:
-        functional_groups = cot[len(" The functional group of the molecule is "):-1]
+    if "The functional groups present in the molecule include" in cot:
+        functional_groups = cot[len(" The functional groups present in the molecule include "):-1]
         fgs = set(functional_groups.split(','))
         fgs = [fg.strip() for fg in fgs]
     else:
