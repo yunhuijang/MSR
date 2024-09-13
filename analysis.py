@@ -195,6 +195,7 @@ def map_functional_group_from_cot(cot):
     if "The functional groups present in the molecule include" in cot:
         functional_groups = cot[len(" The functional groups present in the molecule include "):-1]
         functional_groups = functional_groups.replace('and', '')
+        functional_groups = functional_groups.replace('groups', '')
         fgs = set(functional_groups.split(','))
         fgs = [fg.strip() for fg in fgs]
     else:
