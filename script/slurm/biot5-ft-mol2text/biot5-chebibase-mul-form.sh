@@ -1,10 +1,10 @@
 #!/bin/sh
 
 #SBATCH -J ft-biobaseche-mulform-m2t-genmode
-#SBATCH -p A100-80GB
-#SBATCH -q add_hpgpu
-#SBATCH --gres=gpu:4
+#SBATCH -p A6000
+#SBATCH --gres=gpu:8
 #SBATCH -o sbatch_log/%x.out
+#SBATCH -n 8
 
 cd $SLURM_SUBMIT_DIR
 
