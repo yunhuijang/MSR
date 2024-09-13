@@ -9,12 +9,14 @@ import json
 import openai
 from openai import OpenAI
 from huggingface_hub.hf_api import HfFolder
+import re
 
 
 from util_cot import map_cot_mode, map_cot_to_smiles_list
 from evaluation import text_translation_metrics, mol_translation_metrics, fingerprint_metrics, fcd_metric
 import wandb
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 openai_key = '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'
 os.environ['OPENAI_API_KEY'] = openai_key   
@@ -70,6 +72,28 @@ def generalist(hparams):
         model = OPTForCausalLM.from_pretrained(f"facebook/{model_id}", device_map="auto")
     
     
+    def map_cot_components(cot_mode):
+        result = ""
+        
+        if 'formula' in cot_mode:
+            result += "the molecular formula, "
+        if 'func' in cot_mode:
+            if 'func_simple' in cot_mode:
+                result += "all the functional groups, "
+            else:
+                result += "all the functional groups including the SMILES representation of the functional group, "
+        if 'aromatic' in cot_mode:
+            result += "the number of aromatic rings, "
+        if 'chain' in cot_mode:
+            result += "the length of longest carbon chain, "
+        if 'con_ring_name' in cot_mode:
+            result += "the IUPAC name of all the rings "
+        if 'double_bond' in cot_mode:
+            result += "the number of double bonds "
+            
+        return result
+        
+    
     for index, (description, smiles, cot) in enumerate(zip(description_list_test, tqdm(gt_smiles_list_test), cot_list_test)):
         # sample k-shot data
         random.seed(index)
@@ -78,18 +102,20 @@ def generalist(hparams):
         k_shot_smiles_list = [pair[1] for pair in k_shot_data]
         k_shot_cot_list = [pair[3] for pair in k_shot_data]
         
+        # TODO: map CoT to dict
+        
+        
         # head / input prompt
         if task == 'text2mol':
-            # head_prompt = "You are now working as an excellent expert in chemisrty and drug discovery. \
-            #     Given the caption of a molecule, your job is to predict the SMILES representation of the molecule. \
-            #     The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production. \
-            #     You can infer the molecule SMILES representation from the caption.\n" \
-            #     + "\n"
-            head_prompt = "You are now working as an excellent expert in chemisrty and drug discovery. \
+            
+            cot_components = map_cot_components(cot_mode)
+            
+            head_prompt = f"You are now working as an excellent expert in chemisrty and drug discovery. \
                 Given the caption of a molecule, your job is to predict the SMILES representation of the molecule. \
                 The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production. \
                 You can infer the molecule SMILES representation from the caption. \
-                Before you infer the molecule SMILES representation, YOU SHOULD FIRST GENERATE THE DESCRIPTION of the molecule including all the functional groups, the number of aromatic rings, the length of longest carbon chain, and the IUPAC name of all the rings.\n" \
+                Before you infer the molecule SMILES representation, YOU SHOULD FIRST GENERATE {cot_components} of the molecule. \
+                The functional group and ring IUPAC name should be in the list.\n" \
                 + "\n"
             for k_index, (k_des, k_smi, k_cot) in enumerate(zip(k_shot_description_list, k_shot_smiles_list, k_shot_cot_list)):
                 head_prompt += f"Example {k_index+1}: \n" \
@@ -106,23 +132,12 @@ def generalist(hparams):
             if cot_mode == '':
                 head_prompt += "Your response should only be in the JSON format above; THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. "
             else:
-                head_prompt += "You should FIRST generate the description of "
-                if 'func' in cot_mode:
-                    if 'func_simple' in cot_mode:
-                        head_prompt += "all the functional groups, "
-                    else:
-                        head_prompt += "all the functional groups including the SMILES representation of the functional group, "
-                if 'aromatic' in cot_mode:
-                    head_prompt += "the number of aromatic rings, "
-                if 'chain' in cot_mode:
-                    head_prompt += "the length of longest carbon chain, "
-                if 'con_ring_name' in cot_mode:
-                    head_prompt += "the IUPAC name of all the rings "
-                if 'double_bond' in cot_mode:
-                    head_prompt += "the number of double bonds "
-                
-                head_prompt += "of the molecule in the same format of the input in the examples above, "
-                head_prompt += "and then provide the JSON format of the molecule SMILES. "
+                head_prompt += f"You should FIRST generate {cot_components}"
+                head_prompt += "of the molecule following the examples above, "
+                head_prompt += "and then provide the JSON format of the molecule SMILES based on that. \
+                NOTE THAT THE SMILES REPRESENTATION MUST BE IN THE JSON  {\"molecule\": } THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR JSON. DO NOT CHANGE THE JSON KEY NAME.\n"
+                # head_prompt += "Your response should only be in the JSON format following {\"functional_group\": , \"longest_carbon_chain_length\": , \"aromatic_ring\": , \"ring_IUPAC_name\": , \"molecule\": }; \
+            # THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. DO NOT CHANGE THE JSON KEY NAMES. "
             input_prompt = f"Input: {description}"
             
         elif task == 'mol2text':
@@ -188,38 +203,49 @@ def generalist(hparams):
             output = response.choices[0].message.content
 
         # filter only results (remove 'caption' tag)
+        if hparams.task == 'mol2text':
+            key_word = 'caption'
+        else:
+            key_word = 'molecule'
         try:
-            start_index = output.find('{')
-            end_index = output.find('}')
-            result = output[start_index:end_index+1]
-            result = json.loads(result)
+            results = re.findall(r'\{.*?\}', output)
+            for r in results:
+                try:
+                    result = json.loads(r)
+                    break
+                except:
+                    continue
             result_smiles = list(result.values())[0]
         except:
-            if hparams.task == 'mol2text':
-                key_word = 'caption'
-            else:
-                key_word = 'molecule'
+
             if key_word in output:
                 if '}' in output and '{' in output:
                     # some character exists after }
-                    output = output[output.find('{'):]
-                    result_smiles = output[output.find(key_word)+len(key_word)+4:result.find('}')-1]
+                    if output.count('{') == 1:
+                        output = output[output.find('{'):]
+                        result_smiles = output[output.find(key_word)+len(key_word)+4:output.find('}')-1]
+                    else:
+                        # other {} included
+                        output = output[output.find('{')+1:]
+                        output = output[output.find('{'):]
+                        result_smiles = output[output.find(key_word)+len(key_word)+4:]
                 elif '{' in output:
                     output = output[output.find('{'):]
                     result_smiles = output[output.find(key_word)+len(key_word)+4:]
                 else:
-                    result_smiles = output.strip().replace('\n', '')
+                    result_smiles = output.strip().replace('\n', ' ')
             else:
                 # no keyword 
-                result_smiles = output.strip().replace('\n', '')
-        
+                result_smiles = output.strip().replace('\n', ' ')
+        result_smiles = str(result_smiles)
+        result_smiles = result_smiles.strip().replace('\n', ' ')
         final_results.append(result_smiles)
 
         if task == 'text2mol':
-            generated_cot_list.append(output.split('{')[0].strip().replace('\n', '\t'))
+            generated_cot_list.append(output.split('{')[0].strip().replace('\n', ' '))
     # log generated CoT
     if task == 'text2mol':
-        with open(f'predictions/generalist/cot-{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}-{hparams.test_name}.txt', 'w') as f:
+        with open(f'predictions/generalist/{task}/cot-{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}-{hparams.test_name}.txt', 'w') as f:
             f.write('SMILES' + '\t' + 'generated_cot' + '\n')
             for smi, cot in zip(gt_smiles_list_test, generated_cot_list):
                 f.write(smi + '\t' + cot + '\n')
@@ -272,7 +298,7 @@ def add_args(parser):
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
     
-    parser.add_argument("--test_name", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name')
+    parser.add_argument("--test_name", type=str, default='')
     parser.add_argument("--wandb_mode", type=str, default='disabled')
 
     parser.add_argument("--task", type=str, default='text2mol', choices=['mol2text', 'text2mol'])
@@ -295,8 +321,8 @@ if __name__ == "__main__":
     hparams = parser.parse_args()
     cot_mode = map_cot_mode(hparams)
     
-    file_name = f'predictions/generalist/{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}-{hparams.test_name}.txt'
-    wandb.init(project=hparams.task.split('2')[1]+'2'+hparams.task.split('2')[0], name=f'{hparams.architecture}-{hparams.task}{cot_mode}-{hparams.k}',
+    file_name = f'predictions/generalist/{hparams.task}/{hparams.architecture}-{hparams.task}-{cot_mode}-{hparams.k}-{hparams.test_name}.txt'
+    wandb.init(project=hparams.task.split('2')[1]+'2'+hparams.task.split('2')[0], name=f'{hparams.architecture}-{hparams.task}-{cot_mode}-{hparams.k}',
                 group='generalist', mode=hparams.wandb_mode)
     wandb.config.update(hparams, allow_val_change=True)
     description_list_test, gt_smiles_list_test, final_results = generalist(hparams)
