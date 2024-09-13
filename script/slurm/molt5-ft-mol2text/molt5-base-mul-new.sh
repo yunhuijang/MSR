@@ -24,10 +24,7 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture molt5-base \
 --cot_mode_multiset None \
 --wandb_mode online \
---cot_mode_aromatic \
---cot_mode_chain \
---cot_mode_con_ring_name \
---cot_mode_functional_group \
+--cot_mode aromatic-con_ring_name-chain-func_simple \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
