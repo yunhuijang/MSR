@@ -37,7 +37,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         targets = examples['description']
         if self.hparams.architecture.split('-')[0] == 'biot5':
             # add instruction to input
-            task_definition = 'Definition: You are given a molecule SELFIES. Your job is to generate the molecule description in English that fits the molecule SELFIES.\n\n'
+            task_definition = 'Definition: You are given a molecule SELFIES and its structural information. Your job is to generate the molecule description in English that fits the molecule SELFIES.\n\n'
 
             inputs = [f'{task_definition}Now complete the following example -\nInput: {inp}' for inp in inputs]
             
@@ -56,19 +56,11 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
-                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large'])
-        # parser.add_argument("--cot_mode_multiset", type=str, default='None')
-        # parser.add_argument("--cot_mode_fragment", action='store_true')
-        # parser.add_argument("--cot_mode_ring", action='store_true')
-        # parser.add_argument("--cot_mode_aromatic", action='store_true')
-        # parser.add_argument("--cot_mode_chain", action='store_true')
-        # parser.add_argument("--cot_mode_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_iupac", action='store_true')
-        # parser.add_argument("--cot_mode_con_ring_name", action='store_true')
-        # parser.add_argument("--cot_mode_scaffold", action='store_true')
-        # parser.add_argument("--cot_mode_functional_group", action='store_true')
-        parser.add_argument("--cot_mode", type=str, default='func_smiles-chain-aromatic-con_ring_name', 
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base-chebi20', choices=['molt5-small', 'molt5-base', 'molt5-large',
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
+                                                                                        'biot5-plus-base-chebi20'])
+# multiset_formula-func_simple-chain-aromatic-con_ring_name
+        parser.add_argument("--cot_mode", type=str, default='', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
