@@ -158,9 +158,9 @@ def map_aromatic_ring_cot(smiles_list):
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
     aromatic_ring_num = [CalcNumAromaticRings(mol) if mol is not None else [] for mol in mols]
     for arom_num in aromatic_ring_num:
-        cot = " It includes"
+        cot = " The molecule contains"
         if arom_num == 0:
-            cot = " It does not include any aromatic ring."
+            cot = " It does not have any aromatic ring."
         elif arom_num == 1:
             cot += f" {arom_num} aromatic ring."
         else:
@@ -185,7 +185,7 @@ def map_carbon_chain_length(smiles_list):
     carbon_chain_length = [rdFMCS.FindMCS([mol, carbon_mol]).smartsString if mol is not None else "" for mol in mol_wo_rings]
     # carbon_chain_length = [rdFMCS.FindMCS([mol, carbon_mol]).smartsString if mol is not None else "" for mol in mols]
     carbon_chain_length = [smart.count('[#6]') if smart is not None else 0 for smart in carbon_chain_length]
-    cot_list = [f" The longest carbon chain length is {ccl}." for ccl in carbon_chain_length]
+    cot_list = [f" The longest carbon chain is {ccl} carbons long." for ccl in carbon_chain_length]
     
     return cot_list
 
@@ -397,10 +397,12 @@ def map_functional_group_cot(smiles_list, mode='simple'):
         
         
     if mode == 'simple':
-        cot_list = [f" The functional group of the molecule is {', '.join(groups)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups in mol_groups]
+        cot_list = [f" The functional groups present in the molecule include {', '.join(groups)} groups." if len(groups)>0 else " The functional group of the molecule is unknown." for groups in mol_groups]
     else:
         func_group_smiles = [[functional_group_smiles_dict.get(group, "") for group in groups] for groups in mol_groups]
-        cot_list = [f" The functional group of the molecule are{zip_smiles_and_functional_group(groups, smis)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups, smis in zip(mol_groups, func_group_smiles)]
+        cot_list = [f" The functional groups present in the molecule include {zip_smiles_and_functional_group(groups, smis)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups, smis in zip(mol_groups, func_group_smiles)]
+    
+    cot_list = [','.join(cot.split(',')[:-1]) + ', and' +cot.split(',')[-1] for cot in cot_list]
     
     
     return cot_list
@@ -540,7 +542,7 @@ def map_connected_ring_name_cot(smiles_list):
                 cot += f" {value} {key} rings,"
         cot = cot[:-1] + '.'
         if cot == " It include.":
-            cot = " It does not include any rings."
+            cot = " It does not include any ring."
 
         cot = cot.replace("  ", " ")
         ring_cot.append(cot)
@@ -567,7 +569,10 @@ def map_cot_mode(hparams):
     '''
     Map CoT mode to string
     '''
-    cot_mode = hparams.cot_mode
+    try:
+        cot_mode = hparams.cot_mode
+    except:
+        cot_mode = hparams['cot_mode']
     
     return cot_mode
 
