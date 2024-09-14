@@ -86,7 +86,7 @@ def map_ring_size_from_cot(cot):
     return dict(sorted(ring_dict.items()))
 
 def map_arom_num_from_cot(cot):
-    if cot == ' It does not include any aromatic ring.':
+    if cot == ' It does not have any aromatic ring.':
         return 0
     else:
         try:
@@ -230,19 +230,47 @@ def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_
     return count_correct_list, type_correct_list, info_correct_list
 
 
-def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
+def post_process_cot(cot, mode):
+    if mode == 'multiset_formula':
+        prefix = " The molecular formula is "
+        output = cot[len(prefix):]
+        output = output.replace(' ', '')
+        return prefix+output
+    elif mode == 'chain':
+        numbers = re.findall(r"\d+", cot)
+        chain_length = ''.join(numbers)
+        return f" The longest carbon chain is {chain_length} carbons long."
+    elif mode == 'con_ring_name':
+        prefix = " It includes "
+        output = cot[len(prefix):]
+        splitted = output.split('ring')[:-1]
+        splitted = [split[1:] if split[0] == ',' else split for split in splitted]
+        splitted = [split.strip() for split in splitted]
+        counts = [int(split[0]) for split in splitted]
+        names = [split[1:].replace(' ', '') for split in splitted]
+        
+        result = prefix + ', '.join([f"{count} {name} ring" if count == 1 else f"{count} {name} rings" for count, name in zip(counts, names)]) + '.'
+        return result
+    else:
+        return cot
+    
+
+def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', hparams=None):
     '''
     Compare the ground-truth CoT to predicted CoT
     '''
     # <FIX> Need to be fixed when CoT added
     result = []
-    
+    base_arch = hparams.architecture.split('-')[0]
     cot_modes = cot_mode.split('-')
     for i, mode in enumerate(cot_modes):
         is_only_count = False
         is_func = False
         print(f'Analysis for {mode}')
         cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
+        if base_arch == 'biot5':
+            cur_predicted_cot_list = [post_process_cot(pred, mode) for pred in predicted_cot_list]
+        
         cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
         
         cot_function_dict = {'func_simple': map_functional_group_from_cot, 'func_smiles': map_functional_group_from_cot, 'scaffold': map_scaffold_from_cot, \
