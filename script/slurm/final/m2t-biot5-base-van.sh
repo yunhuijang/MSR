@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J biobase-final-m2t
+#SBATCH -J biobase-final-m2t-van
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
