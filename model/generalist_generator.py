@@ -16,9 +16,9 @@ from util_cot import map_cot_mode, map_cot_to_smiles_list
 from evaluation import text_translation_metrics, mol_translation_metrics, fingerprint_metrics, fcd_metric
 import wandb
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-openai_key = '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'
+openai_key = 'sk-86W_hKeqPXa8NlsLLF7XLA_NcVg7b3iBQcb_DWVtBxT3BlbkFJ4mJKz2zamauzjIfyl1SGl9K9CQ0PNSjcZIl7_HkQAA'
 os.environ['OPENAI_API_KEY'] = openai_key   
 
 
@@ -133,11 +133,10 @@ def generalist(hparams):
                 head_prompt += "Your response should only be in the JSON format above; THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. "
             else:
                 head_prompt += f"You should FIRST generate {cot_components}"
-                head_prompt += "of the molecule following the examples above, "
-                head_prompt += "and then provide the JSON format of the molecule SMILES based on that. \
-                NOTE THAT THE SMILES REPRESENTATION MUST BE IN THE JSON  {\"molecule\": } THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR JSON. DO NOT CHANGE THE JSON KEY NAME.\n"
+                head_prompt += "of the molecule following the examples above, and then provide the JSON format of the molecule SMILES based on that. \
+                NOTE THAT THE SMILES REPRESENTATION MUST BE IN THE JSON format above {\"molecule\": }. THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR JSON. DO NOT CHANGE THE JSON KEY NAME.\n"
                 # head_prompt += "Your response should only be in the JSON format following {\"functional_group\": , \"longest_carbon_chain_length\": , \"aromatic_ring\": , \"ring_IUPAC_name\": , \"molecule\": }; \
-            # THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. DO NOT CHANGE THE JSON KEY NAMES. "
+                # THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. DO NOT CHANGE THE JSON KEY NAMES. "
             input_prompt = f"Input: {description}"
             
         elif task == 'mol2text':
@@ -204,9 +203,9 @@ def generalist(hparams):
 
         # filter only results (remove 'caption' tag)
         if hparams.task == 'mol2text':
-            key_word = 'caption'
+            key_words = ['caption:']
         else:
-            key_word = 'molecule'
+            key_words = ['molecule:', '"molecule":', "'molecule':" 'SMILES:', 'SMILES representation:', 'SMILES Representation:']
         try:
             results = re.findall(r'\{.*?\}', output)
             for r in results:
@@ -217,28 +216,30 @@ def generalist(hparams):
                     continue
             result_smiles = list(result.values())[0]
         except:
-
-            if key_word in output:
-                if '}' in output and '{' in output:
-                    # some character exists after }
-                    if output.count('{') == 1:
+            result_smiles = output
+            for key_word in key_words:
+                if key_word in output:
+                    if '}' in output and '{' in output:
+                        # some character exists after }
+                        if output.count('{') == 1:
+                            output = output[output.find('{'):]
+                            result_smiles = output[output.find(key_word)+len(key_word):output.find('}')-1]
+                        else:
+                            # other {} included
+                            output = output[output.find('{')+1:]
+                            output = output[output.find('{'):]
+                            result_smiles = output[output.find(key_word)+len(key_word):]
+                    # unclosed bracket
+                    elif '{' in output:
                         output = output[output.find('{'):]
-                        result_smiles = output[output.find(key_word)+len(key_word)+4:output.find('}')-1]
+                        result_smiles = output[output.find(key_word)+len(key_word):]
                     else:
-                        # other {} included
-                        output = output[output.find('{')+1:]
-                        output = output[output.find('{'):]
-                        result_smiles = output[output.find(key_word)+len(key_word)+4:]
-                elif '{' in output:
-                    output = output[output.find('{'):]
-                    result_smiles = output[output.find(key_word)+len(key_word)+4:]
-                else:
-                    result_smiles = output.strip().replace('\n', ' ')
-            else:
-                # no keyword 
-                result_smiles = output.strip().replace('\n', ' ')
+                        result_smiles = output[output.find(key_word)+len(key_word):]
+                    break
         result_smiles = str(result_smiles)
         result_smiles = result_smiles.strip().replace('\n', ' ')
+        result_smiles = result_smiles.replace('"', '')
+        result_smiles = result_smiles.replace("'", '')
         final_results.append(result_smiles)
 
         if task == 'text2mol':
@@ -293,22 +294,23 @@ def evaluate_text2mol(file_name, description_list_test, gt_smiles_list_test, fin
 
 @staticmethod
 def add_args(parser):
-    parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name', 
+    parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
-                            aromatic, ring_name, con_ring_name, iupac")
+                            aromatic, ring_name, con_ring_name, iupac \
+                            example: multiset_formula-func_simple-chain-aromatic-con_ring_name")
     
     parser.add_argument("--test_name", type=str, default='')
     parser.add_argument("--wandb_mode", type=str, default='disabled')
 
     parser.add_argument("--task", type=str, default='text2mol', choices=['mol2text', 'text2mol'])
     parser.add_argument("--k", type=int, default=10)
-    parser.add_argument("--model_id", type=str, default='meta-llama/Meta-Llama-3-8B-Instruct', 
+    parser.add_argument("--model_id", type=str, default='gpt-4o', 
                         choices=['meta-llama/Meta-Llama-3-8B-Instruct', 'gpt-4o',
                                 'meta-llama/Meta-Llama-3.1-70B-Instruct', 'meta-llama/Meta-Llama-3.1-405B-Instruct',
                                 'meta-llama/Meta-Llama-3.1-8B-Instruct', 'galactica-6.7b'])
     parser.add_argument("--max_length", type=int, default=768)
-    parser.add_argument("--architecture", type=str, default='llama3', choices=['llama3', 'gpt4o', 'galactica'])
+    parser.add_argument("--architecture", type=str, default='gpt4o', choices=['llama3', 'gpt4o', 'galactica'])
 
     return parser
 

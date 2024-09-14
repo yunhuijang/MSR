@@ -55,7 +55,7 @@ class FineTuneTranslator(pl.LightningModule):
             smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
             smiles_pair_list = [
             [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-            ][1:]
+            ][1:][:10]
             description_list = [pair[2] for pair in smiles_pair_list]
             gt_smiles_list = [pair[1] for pair in smiles_pair_list]
             id_list = [pair[0] for pair in smiles_pair_list]
@@ -107,7 +107,7 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
-                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20'])
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20',  'biot5-base-mol2text', 'biot5-base-text2mol'])
         parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_simple-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
