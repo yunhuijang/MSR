@@ -209,9 +209,12 @@ def map_chiral_from_cot(cot):
     else:
         return []
 
-def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False):
+def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_func=False):
     # whole information of rings
-    info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
+    if is_func:
+        info_correct_list = [set(gt).intersection(set(pred))/len(gt) for gt, pred in zip(gt_info_list, pred_info_list)]
+    else:
+        info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
     if is_only_count:
         return info_correct_list
@@ -237,6 +240,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
     cot_modes = cot_mode.split('-')
     for i, mode in enumerate(cot_modes):
         is_only_count = False
+        is_func = False
         print(f'Analysis for {mode}')
         cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
         cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
@@ -251,9 +255,10 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring'):
         pred_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_predicted_cot_list]
         if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral']:
             is_only_count = True
+        if 'func' in mode:
+            is_func = True
         
-        
-        acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count)
+        acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count, is_func)
         result.append(acc_list)
     return result
         
