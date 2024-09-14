@@ -60,7 +60,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol'])
 # multiset_formula-func_simple-chain-aromatic-con_ring_name
-        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral', 
+        parser.add_argument("--cot_mode", type=str, default='', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")

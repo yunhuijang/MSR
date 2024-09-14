@@ -23,7 +23,6 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture biot5-plus-base-chebi20 \
---cot_mode ""\
 --wandb_mode online \
 --train_batch_size 16 \
 --eval_batch_size 16 \
