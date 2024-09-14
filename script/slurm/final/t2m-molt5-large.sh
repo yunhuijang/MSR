@@ -32,7 +32,8 @@ srun python model/one_stage_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 768 \
---check_val_every_n_epoch 10
+--check_val_every_n_epoch 10 \
+--run_id we5lr5iu
 
 
 
