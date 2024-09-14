@@ -110,8 +110,10 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                 decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
-
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            if self.hparams.lr_scheduler_type == 'cosine':
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}-cosine.txt'
+            else:
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             gt_cot = decoded_labels
             predicted_cot = decoded_preds
