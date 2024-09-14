@@ -2,7 +2,7 @@
 
 #SBATCH -J biobase-final-t2m-reason-cosine
 #SBATCH -p A6000
-#SBATCH -q add_hpgpu
+#SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
