@@ -25,8 +25,8 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture molt5-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \
