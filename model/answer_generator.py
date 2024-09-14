@@ -95,7 +95,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument("--weight_decay", type=float, default=0)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=5)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=10)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
@@ -121,30 +121,27 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
         if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
             print("Start Answer Evaluation")
             # generate predictions
-            generation_index = range(len(self.test_dataset))
-            gt_smiles, predicted_smiles = self.generaate_samples(generation_index, generation_mode=self.hparams.generation_mode)
+            # generation_index = range(len(self.test_dataset))
             
-            if self.hparams.is_iterative and state.epoch > 10:
-                num_iter = 0
-                cot_list = self.test_dataset['cot']
-                while((num_iter < self.hparams.num_iter) or (len(generation_index) == 0)):
-                    data_dict = {'smiles': predicted_smiles}
-                    data_dict = map_cot_to_smiles_list(predicted_smiles, self.hparams, data_dict, 'test')
-                    generation_index_bool = [pred_info != true_info for pred_info, true_info in zip(data_dict['cot'], cot_list)]
-                    generation_index = [i for i, x in enumerate(generation_index_bool) if x]
-                    _, new_predicted_smiles = self.generaate_samples(generation_index, generation_mode=self.hparams.generation_mode)
-                    final_predicted_smiles = []
-                    for index, gi_bool in enumerate(generation_index_bool):
-                        # matching CoT -> keep the predicted smiles
-                        if not gi_bool:
-                            final_predicted_smiles.append(predicted_smiles[index])
-                        # not matching CoT -> replace with new predicted smiles
-                        else:
-                            final_predicted_smiles.append(new_predicted_smiles.pop(0))
-                    predicted_smiles = final_predicted_smiles
+            
             if self.hparams.is_iterative:
+                cot_list = self.test_dataset['cot']
+                cot_list_split = [cot.split('.')[:-1] for cot in cot_list]
+                gt_smiles, pred_smiles = self.generaate_samples(self.test_dataset, generation_mode=self.hparams.generation_mode, num_iter=self.hparams.num_iter)
+                pred_cot_list = [map_cot_to_smiles_list(ps, self.hparams, {}, 'test')['cot'] for ps in pred_smiles]
+                pred_cot_list_split = [[c.split('.')[:-1] for c in cot] for cot in pred_cot_list]
+                cot_align_list = []
+                for cot, pred_cot_l in zip(cot_list_split, pred_cot_list_split):
+                    align_list = []
+                    for pred_cot in pred_cot_l:
+                        align_list.append(sum([c==pc for c, pc in zip(cot, pred_cot)]))
+                    cot_align_list.append(align_list)
+                
+                max_matching_index = np.argmax(cot_align_list, axis=1)
+                predicted_smiles = [elem[0] for elem in np.take_along_axis(np.array(pred_smiles), max_matching_index[..., None], axis=1).tolist()]
                 file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-iter.txt'
             else:
+                gt_smiles, predicted_smiles = self.generaate_samples(self.test_dataset, generation_mode=self.hparams.generation_mode)
                 file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             
@@ -178,19 +175,27 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     }
             self._wandb.log(result)
             
-    def generaate_samples(self, generation_index, generation_mode=False):
-        dataset = Dataset.from_dict(self.test_dataset[generation_index])
+    def generaate_samples(self, dataset, generation_mode=False, num_iter=1):
         if generation_mode:
             decoded_preds = []
             input_id_list = self.tokenize_dataset(dataset).input_ids
             for input_ids in tqdm(input_id_list, 'Generation'):
                 input_id = torch.tensor(input_ids).unsqueeze(0).to(self.trainer.model.device)
-                output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens)
+                output_tokens = self.trainer.model.generate(input_id, max_new_tokens=self.hparams.max_new_tokens, num_beams=num_iter, num_return_sequences=num_iter)
                 preds = self.tokenizer.batch_decode(output_tokens, skip_special_tokens=True)
-                if isinstance(preds, list):
-                    output = preds[0]
+                output = [p.strip() for p in preds]
+                if self.base_arch == 'biot5':
+                    output = [selfies_to_smiles(sf.replace(" ", "")) for sf in output]
                 decoded_preds.append(output)
+            if self.hparams.is_iterative:
+                predicted_smiles = decoded_preds
+            else:
+                predicted_smiles = [pred[0] for pred in decoded_preds]
             decoded_labels = dataset['smiles']
+            if self.base_arch == 'biot5':
+                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
+            else:
+                gt_smiles = decoded_labels
         else:
             predictions = self.trainer.predict(dataset)
             preds, labels = predictions.predictions, predictions.label_ids
@@ -203,14 +208,14 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
             labels = np.where(labels != -100, labels, self.tokenizer.pad_token_id)
             decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
-        decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
+            decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
         
-        if self.base_arch == 'biot5':
-            gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
-            predicted_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_preds]
-        else:
-            gt_smiles = decoded_labels
-            predicted_smiles = decoded_preds
+            if self.base_arch == 'biot5':
+                gt_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_labels]
+                predicted_smiles = [selfies_to_smiles(sf.replace(" ", "")) for sf in decoded_preds]
+            else:
+                gt_smiles = decoded_labels
+                predicted_smiles = decoded_preds
             
         return gt_smiles, predicted_smiles
         
