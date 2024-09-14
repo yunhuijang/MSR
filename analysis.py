@@ -100,7 +100,7 @@ def map_arom_num_from_cot(cot):
     
 def map_chain_from_cot(cot):
     try:
-        return int(cot.split(' ')[-1][:-1])
+        return re.findall(r"\d+", cot)[0]
     except:
         logging.warning(f"Error in mapping chain length from CoT: {cot}")
         return 100
@@ -203,7 +203,7 @@ def map_functional_group_from_cot(cot):
     return sorted(fgs)
 
 def map_chiral_from_cot(cot):
-    numbers = re.findall("\d+", cot)
+    numbers = re.findall(r"\d+", cot)
     if len(numbers) == 3:
         return [int(numbers[1]), int(numbers[2])]
     else:

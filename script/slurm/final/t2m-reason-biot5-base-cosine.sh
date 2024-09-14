@@ -1,8 +1,9 @@
 #!/bin/sh
 
 #SBATCH -J biobase-final-t2m-reason-cosine
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
+#SBATCH -q add_hpgpu
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
@@ -24,8 +25,8 @@ srun python model/reasoning_generator.py \
 --architecture biot5-plus-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 32 \
+--eval_batch_size 32 \
 --epochs 250 \
 --model_id QizhiPei \
 --max_length 820 \
@@ -35,7 +36,7 @@ srun python model/reasoning_generator.py \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
---lr_scheduler_type cosine \
+--lr_scheduler_type cosine
 
 
 
