@@ -156,7 +156,7 @@ def map_ring_cot(smiles_list):
 def map_aromatic_ring_cot(smiles_list):
     arom_cot = []
     mols = [Chem.MolFromSmiles(s) for s in smiles_list]
-    aromatic_ring_num = [CalcNumAromaticRings(mol) if mol is not None else [] for mol in mols]
+    aromatic_ring_num = [CalcNumAromaticRings(mol) if mol is not None else 0 for mol in mols]
     for arom_num in aromatic_ring_num:
         cot = " The molecule contains"
         if arom_num == 0:
@@ -399,6 +399,9 @@ def map_functional_group_cot(smiles_list, mode='simple'):
     
     mol_groups = []
     for mol in mols:
+        if mol is None:
+            mol_groups.append([])
+            continue
         groups = [name for name, func in functional_group_list if func(mol)]
         groups = [group.split('_')[1] for group in groups]
         mol_groups.append(groups)
@@ -410,7 +413,7 @@ def map_functional_group_cot(smiles_list, mode='simple'):
         func_group_smiles = [[functional_group_smiles_dict.get(group, "") for group in groups] for groups in mol_groups]
         cot_list = [f" The functional groups present in the molecule include {zip_smiles_and_functional_group(groups, smis)}." if len(groups)>0 else " The functional group of the molecule is unknown." for groups, smis in zip(mol_groups, func_group_smiles)]
     
-    cot_list = [','.join(cot.split(',')[:-1]) + ', and' +cot.split(',')[-1] for cot in cot_list]
+    cot_list = [','.join(cot.split(',')[:-1]) + ', and' +cot.split(',')[-1] if cot != ' The functional group of the molecule is unknown.' else cot for cot in cot_list]
     
     
     return cot_list
