@@ -1,6 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J biobase-org-final-m2t
+#SBATCH --exclude=node76,node54,node79
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
