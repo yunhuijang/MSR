@@ -100,7 +100,7 @@ def map_arom_num_from_cot(cot):
     
 def map_chain_from_cot(cot):
     try:
-        return re.findall(r"\d+", cot)[0]
+        return int(re.findall(r"\d+", cot)[0])
     except:
         logging.warning(f"Error in mapping chain length from CoT: {cot}")
         return 100
@@ -212,7 +212,7 @@ def map_chiral_from_cot(cot):
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_func=False):
     # whole information of rings
     if is_func:
-        info_correct_list = [set(gt).intersection(set(pred))/len(gt) for gt, pred in zip(gt_info_list, pred_info_list)]
+        info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) for gt, pred in zip(gt_info_list, pred_info_list)]
     else:
         info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
