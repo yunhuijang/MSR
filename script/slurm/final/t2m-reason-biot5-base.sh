@@ -26,8 +26,8 @@ srun python model/reasoning_generator.py \
 --architecture biot5-plus-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 16 \
+--eval_batch_size 16 \
 --epochs 250 \
 --model_id QizhiPei \
 --max_length 820 \
