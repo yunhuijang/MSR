@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J mollarge-final-chiral-m2t
-#SBATCH --exclude=node76,node54,node79
+#SBATCH --exclude=n76,n54,n79
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4

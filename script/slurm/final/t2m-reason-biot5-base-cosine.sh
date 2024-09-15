@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J biobase-final-t2m-reason-cosine
-#SBATCH --exclude=node76,node54,node79
+#SBATCH --exclude=n76,n54,n79
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
