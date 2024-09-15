@@ -32,8 +32,7 @@ srun python model/one_stage_generator_mol2text.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---check_val_every_n_epoch 5 \
---run_id 8lm5hm1j
+--check_val_every_n_epoch 5
 
 
 
