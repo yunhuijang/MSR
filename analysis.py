@@ -212,7 +212,7 @@ def map_chiral_from_cot(cot):
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_func=False):
     # whole information of rings
     if is_func:
-        info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) for gt, pred in zip(gt_info_list, pred_info_list)]
+        info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) if len(gt) > 0 else gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     else:
         info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
