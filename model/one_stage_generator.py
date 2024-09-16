@@ -191,7 +191,7 @@ class WandbPredictionProgressCallback(WandbCallback):
             if cot_mode[0] == '-':
                 cot_mode = cot_mode[1:]
             # ring_acc, multi_acc, arom_acc = compute_cot_accuracy(gt_cot, predicted_cot, cot_mode=cot_mode)
-            cot_acc = compute_cot_accuracy(gt_cots, predicted_cots, cot_mode=cot_mode)
+            cot_acc = compute_cot_accuracy(gt_cots, predicted_cots, cot_mode=cot_mode, base_arch=self.base_arch)
             wandb_log_dict = {}
             cot_modes = cot_mode.split('-')
             for mode, acc in zip(cot_modes, cot_acc):
