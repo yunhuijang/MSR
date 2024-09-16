@@ -92,6 +92,11 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
     def __init__(self, trainer, tokenizer, test_dataset, hparams):
         super().__init__(trainer, tokenizer, test_dataset, hparams)
         self.model = self.trainer.model
+        decoded_labels = []
+        for gt in self.test_dataset['description']:
+            decoded_label = self.tokenizer.batch_decode(torch.tensor(self.tokenizer(gt).input_ids).unsqueeze(0), skip_special_tokens=True)[0]
+            decoded_labels.append(decoded_label)
+        self.decoded_labels = decoded_labels
     
     def log_description_results(self, file_name, smiles_list, gt_description, predicted_description):
         
@@ -159,12 +164,9 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
                     if isinstance(preds, list):
                         output = preds[0]
                     decoded_preds.append(output)
+
                 
-                for gt in self.test_dataset['description']:
-                    decoded_label = self.tokenizer.batch_decode(torch.tensor(self.tokenizer(gt).input_ids).unsqueeze(0), skip_special_tokens=True)[0]
-                    decoded_labels.append(decoded_label)
-                
-                # decoded_labels = self.test_dataset['description']
+                decoded_labels = self.decoded_labels
             else:
                 predictions = self.trainer.predict(self.test_dataset)
                 preds, labels = predictions.predictions, predictions.label_ids
