@@ -159,7 +159,7 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
                     decoded_preds.append(output)
                 
                 for gt in self.test_dataset['description']:
-                    decoded_label = self.tokenizer.batch_decode(torch.tensor(tokenizer(gt).input_ids).unsqueeze(0), skip_special_tokens=True)[0]
+                    decoded_label = self.tokenizer.batch_decode(torch.tensor(self.tokenizer(gt).input_ids).unsqueeze(0), skip_special_tokens=True)[0]
                     decoded_labels.append(decoded_label)
                 
                 # decoded_labels = self.test_dataset['description']
