@@ -60,12 +60,12 @@ def analyze_structure_failure(hparams):
 
         head_prompt =  f"You are now working as an excellent expert in chemisrty and drug discovery. \
                 Given the SMILES representation of a molecule and structural description of the molecule, your job is to predict the structural information of the molecule. \
-                The structural information of the molecule caption includes ALL the functional groups, the length of the longest carbon chain, the number of aromatic rings, and the IUPAC names of ALL the rings in the molecule. \
+                The structural information of the molecule caption includes the molecular formula, ALL the functional groups, the length of the longest carbon chain except for ring, the number of aromatic rings, and the IUPAC names of ALL the rings in the molecule. \
                 The functional group and ring IUPAC name should be in the list. \
                 Note that the functional groups should be in the candidates: {functional_group_str}\n" \
                 + "\n"
         
-        head_prompt += "Your response should only be in the JSON format following {\"functional_group\": , \"longest_carbon_chain_length\": , \"aromatic_ring\": , \"ring_IUPAC_name\":}; \
+        head_prompt += "Your response should only be in the JSON format following {\"molecular_formula\": , \"functional_group\": , \"longest_carbon_chain_length\": , \"aromatic_ring\": , \"ring_IUPAC_name\":}; \
             THERE SHOULD BE NO OTHER CONTENT INCLUDED IN YOUR RESPONSE. DO NOT CHANGE THE JSON KEY NAMES. "
         input_prompt = f"Input: {smiles}\n"
         
@@ -135,6 +135,12 @@ def analyze_structure_failure(hparams):
             result = result.replace('\t', ' ')
         final_results.append(result)
     
+    with open(f'{file_name}', 'w') as f:
+        f.write('description' + '\t' + 'output' + '\n')
+        for rt, ot in zip(gt_smiles_list_test, final_results):
+            f.write(rt + '\t' + str(ot) + '\n')
+    
+    
     return gt_smiles_list_test, final_results
 
 def cot_to_dict(cot):
@@ -149,17 +155,7 @@ def cot_to_dict(cot):
 
 @staticmethod
 def add_args(parser):
-    parser.add_argument("--cot_mode_multiset", type=str, default='None')
-    parser.add_argument("--cot_mode_fragment", action='store_true')
-    parser.add_argument("--cot_mode_ring", action='store_true')
-    parser.add_argument("--cot_mode_ring_name", action='store_true')
-    parser.add_argument("--cot_mode_iupac", action='store_true')
-    parser.add_argument("--cot_mode_scaffold", action='store_true')
-    
-    parser.add_argument("--cot_mode_aromatic", action='store_false')
-    parser.add_argument("--cot_mode_chain", action='store_false')
-    parser.add_argument("--cot_mode_con_ring_name", action='store_false')
-    parser.add_argument("--cot_mode_functional_group", action='store_false')
+    parser.add_argument("--cot_mode", type=str, default="multiset_formula-chain-aromatic-con_ring_name-func_simple")
     parser.add_argument("--functional_group_type", type=str, default='simple')
 
     parser.add_argument("--wandb_mode", type=str, default='disabled')
@@ -174,28 +170,85 @@ def add_args(parser):
     return parser
 
 def evaluate_failure(file_name, gt_smiles_list_test, final_results):
-    # with open(f'{file_name}', 'w') as f:
-    #     f.write('description' + '\t' + 'output' + '\n')
-    #     for rt, ot in zip(gt_smiles_list_test, final_results):
-    #         f.write(rt + '\t' + str(ot) + '\n')
-               
-    cot_list_chain = map_cot_to_smiles_list(gt_smiles_list_test, hparams, {}, 'test')['cot_chain']
+
+    
+    cot_list = map_cot_to_smiles_list(gt_smiles_list_test, hparams, {}, 'test')
+    
+    cot_list_chain = cot_list['cot_chain']
     chain_info_list = [map_chain_from_cot(cot) for cot in cot_list_chain]
     
-    cot_list_arom = map_cot_to_smiles_list(gt_smiles_list_test, hparams, {}, 'test')['cot_aromatic']
+    cot_list_arom = cot_list['cot_aromatic']
     arom_info_list = [map_arom_num_from_cot(cot) for cot in cot_list_arom]
     
-    cot_list_func = map_cot_to_smiles_list(gt_smiles_list_test, hparams, {}, 'test')['cot_functional_group']
+    cot_list_func = cot_list['cot_func_simple']
     func_info_list = [map_functional_group_from_cot(cot) for cot in cot_list_func]
     
-    cot_list_con_ring_name = map_cot_to_smiles_list(gt_smiles_list_test, hparams, {}, 'test')['cot_connected_ring_name']
+    cot_list_con_ring_name = cot_list['cot_con_ring_name']
     ring_info_list = [map_ring_name_from_cot(cot) for cot in cot_list_con_ring_name]
     ring_info_list = [sorted(list(ri.keys())) for ri in ring_info_list]
     
-    chain_match, arom_match, func_match, ring_match = 0, 0, 0, 0
+    cot_list_formula =  cot_list['cot_multiset_formula']
+    formula_info_list = [cot.split(' ')[-1][:-1] for cot in cot_list_formula]
     
+    chain_match, arom_match, func_match, ring_match, form_match = 0, 0, 0, 0, 0
+    pred_formula_list = []
+    pred_chain_list = []
+    pred_arom_list = []
+    pred_ring_list = []
+    pred_func_list = []
+    count = 0
+    for fr in final_results:
+        try:
+            d = json.loads(fr.replace("\'", '"').replace('None', '0'))
+        except:
+            fr = fr.replace("\'", '"').replace('None', '0')
+            if fr[-1] == ',':
+                fr = fr[:-1]
+            
+            if fr.count('"') % 2 != 0:
+                fr += '"'
+            if fr.count('[') != fr.count(']'):
+                fr += ']'
+            if fr.count('{') != fr.count('}'):
+                fr += '}'
+            try:
+                d = json.loads(fr)
+            except:
+                d = {}
+                count += 1
+        try:
+            pred_formula_list.append(d['molecular_formula'])
+        except:
+            pred_formula_list.append('')
+        try:
+            pred_chain_list.append(int(d['longest_carbon_chain_length']))
+        except:
+            pred_chain_list.append(0)
+        try:
+            pred_arom_list.append(int(d['aromatic_ring']))
+        except:
+            pred_arom_list.append(0)
+        try:
+            pred_ring_list.append(d['ring_IUPAC_name'])
+        except:
+            pred_ring_list.append([])
+        try:
+            pred_func_list.append(d['functional_group'])
+        except:
+            pred_func_list.append([])
+
+    result_data = [gt_smiles_list_test, pred_formula_list, formula_info_list, \
+        pred_chain_list, chain_info_list, pred_arom_list, arom_info_list, \
+        pred_ring_list, ring_info_list, pred_func_list, func_info_list]
+    result_data = list(map(list, zip(*result_data)))
     
-    for pred_info, chain_info, arom_info, func_info, ring_info in zip(final_results, chain_info_list, arom_info_list, func_info_list, ring_info_list):
+    table = wandb.Table(data=result_data,
+                        columns=['gt_smiles', 'pred_formula', 'gt_formula', 'pred_chain', 'gt_chain', \
+                                 'pred_aromatic', 'gt_aromatic', 'pred_ring', 'gt_ring', 'pred_functional_group', 'gt_functional_group'])
+    wandb.log({f"Prediction": table})
+
+    for pred_info, chain_info, arom_info, func_info, ring_info, form_info in zip(final_results, chain_info_list, arom_info_list, func_info_list, ring_info_list, formula_info_list):
+        pred_info = str(pred_info)
         pred_info = pred_info.replace('\'', '"')
         if '}' not in pred_info:
             pred_info += '}'
@@ -204,19 +257,38 @@ def evaluate_failure(file_name, gt_smiles_list_test, final_results):
         except:
             print(pred_info)
             continue
-            
-                  
-        if pred_info['longest_carbon_chain_length'] == chain_info:
-            chain_match += 1
-        if pred_info['aromatic_ring'] == arom_info:
-            arom_match += 1
+        try:
+            if int(pred_info['longest_carbon_chain_length']) == int(chain_info):
+                chain_match += 1
+        except:
+            pass
+        try:
+            if pred_info['aromatic_ring'] == arom_info:
+                arom_match += 1
+        except:
+            pass
         # if pred_info['functional_group'] == func_info:
-        func_match += len(set(pred_info['functional_group']).intersection(set(func_info)))/len(func_info)
-        if pred_info['ring_IUPAC_name'] == ring_info:
-            ring_match += 1
-    
+        try:
+            func_match += len(set(pred_info['functional_group']).intersection(set(func_info)))/len(func_info)
+        except:
+            pass
+        try:
+            if len(ring_info) == 0:
+                if pred_info['ring_IUPAC_name'] == []:
+                    ring_match += 1
+            else:
+                ring_match += len(set(pred_info['ring_IUPAC_name']).intersection(set(ring_info)))/len(ring_info)
+        except:
+            pass
+        try:
+            if pred_info['molecular_formula'] == form_info:
+                form_match += 1
+        except:
+            pass
+            
     result = {'chain_match': chain_match/len(final_results), 'arom_match': arom_match/len(final_results),
-              'func_match': func_match/len(final_results), 'ring_match': ring_match/len(final_results)}
+              'func_match': func_match/len(final_results), 'ring_match': ring_match/len(final_results),
+              'form_match': form_match/len(final_results)}
     
     wandb.log(result)
     print(result)
@@ -231,11 +303,12 @@ if __name__ == "__main__":
     hparams = parser.parse_args()
     cot_mode = map_cot_mode(hparams)
     
-    file_name = f'predictions/generalist/{hparams.architecture}{cot_mode}-analysis.txt'
-    # wandb.init(project='analysis', name=f'{hparams.architecture}-analysis',
-    #             group='generalist', mode=hparams.wandb_mode)
-    # wandb.config.update(hparams, allow_val_change=True)
+    file_name = f'predictions/generalist/analysis-{hparams.architecture}-{cot_mode}.txt'
+    wandb.init(project='analysis', name=f'{hparams.architecture}-analysis',
+                group='generalist', mode=hparams.wandb_mode)
+    wandb.config.update(hparams, allow_val_change=True)
     # gt_smiles_list_test, final_results = analyze_structure_failure(hparams)
+    
     smiles_pair_list = [
     [pair.split('\t')[0], pair.split('\t')[1]] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()
     ][1:]

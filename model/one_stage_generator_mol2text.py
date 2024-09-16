@@ -47,12 +47,14 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         if cot_mode != "":
             inputs = [f" {smiles}" for smiles in inputs]
         # No need for learning CoT
-        # if self.hparams.architecture.split('-')[0] == 'biot5':
-        #     inputs = [inp + "\nOutput: " for inp in inputs]
+        if self.hparams.force:
+            if self.hparams.architecture.split('-')[0] == 'biot5':
+                inputs = [inp + "\nOutput: " for inp in inputs]
         inputs = add_cot_to_text(examples, inputs, 'backward')
         inputs = [inp.strip() for inp in inputs]
-        if self.hparams.architecture.split('-')[0] == 'biot5':
-            inputs = [inp + "\nOutput: " for inp in inputs]
+        if not self.hparams.force:
+            if self.hparams.architecture.split('-')[0] == 'biot5':
+                inputs = [inp + "\nOutput: " for inp in inputs]
         model_inputs = self.tokenizer(inputs, text_target=targets, max_length=self.hparams.max_length, truncation=True)
         return model_inputs
     
