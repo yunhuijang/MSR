@@ -47,6 +47,8 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         if cot_mode != "":
             inputs = [f" {smiles}" for smiles in inputs]
         # No need for learning CoT
+        # if self.hparams.architecture.split('-')[0] == 'biot5':
+        #     inputs = [inp + "\nOutput: " for inp in inputs]
         inputs = add_cot_to_text(examples, inputs, 'backward')
         inputs = [inp.strip() for inp in inputs]
         if self.hparams.architecture.split('-')[0] == 'biot5':
@@ -56,7 +58,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol'])
 # multiset_formula-func_simple-chain-aromatic-con_ring_name
@@ -75,11 +77,12 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
+        parser.add_argument('--force', action='store_true')
 
         return parser
 
@@ -154,7 +157,12 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
                     if isinstance(preds, list):
                         output = preds[0]
                     decoded_preds.append(output)
-                decoded_labels = self.test_dataset['description']
+                
+                for gt in self.test_dataset['description_list']:
+                    decoded_label = self.tokenizer.batch_decode(torch.tensor(tokenizer(gt).input_ids).unsqueeze(0), skip_special_tokens=True)[0]
+                    decoded_labels.append(decoded_label)
+                
+                # decoded_labels = self.test_dataset['description']
             else:
                 predictions = self.trainer.predict(self.test_dataset)
                 preds, labels = predictions.predictions, predictions.label_ids
@@ -173,8 +181,10 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
             predicted_description = decoded_preds
             
                 
-                
-            file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            if hparams.force:
+                file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}-force.txt'
+            else:
+                file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             smiles_list = self.test_dataset['smiles']
 
             self.log_description_results(file_name, smiles_list, gt_description, predicted_description)
