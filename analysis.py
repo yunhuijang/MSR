@@ -234,31 +234,35 @@ def post_process_cot(cot, mode):
     '''
     Removes unnecessary indents in the CoT
     '''
-    if mode == 'multiset_formula':
-        prefix = "The molecular formula is "
-        output = cot[len(prefix):]
-        output = output.replace(' ', '')
-        return prefix+output
-    elif mode == 'chain':
-        numbers = re.findall(r"\d+", cot)
-        chain_length = ''.join(numbers)
-        return f" The longest carbon chain is {chain_length} carbons long."
-    elif mode == 'con_ring_name':
-        if cot == ' It does not include any ring.':
-            return cot
-        else:
-            prefix = " It includes "
+    try:
+        if mode == 'multiset_formula':
+            prefix = "The molecular formula is "
             output = cot[len(prefix):]
-            splitted = output.split('ring')[:-1]
-            splitted = [split[split.find(',')+1:] for split in splitted]
-            # splitted = [split[1:] if split[0] == ',' else split for split in splitted]
-            splitted = [split.strip() for split in splitted]
-            counts = [int(split[0]) for split in splitted]
-            names = [split[1:].replace(' ', '') for split in splitted]
-            
-            result = prefix + ', '.join([f"{count} {name} ring" if count == 1 else f"{count} {name} rings" for count, name in zip(counts, names)]) + '.'
-            return result
-    else:
+            output = output.replace(' ', '')
+            return prefix+output
+        elif mode == 'chain':
+            numbers = re.findall(r"\d+", cot)
+            chain_length = ''.join(numbers)
+            return f" The longest carbon chain is {chain_length} carbons long."
+        elif mode == 'con_ring_name':
+            if cot == ' It does not include any ring.':
+                return cot
+            else:
+                prefix = " It includes "
+                output = cot[len(prefix):]
+                splitted = output.split('ring')[:-1]
+                splitted = [split[split.find(',')+1:] for split in splitted]
+                # splitted = [split[1:] if split[0] == ',' else split for split in splitted]
+                splitted = [split.strip() for split in splitted]
+                counts = [int(split[0]) for split in splitted]
+                names = [split[1:].replace(' ', '') for split in splitted]
+                
+                result = prefix + ', '.join([f"{count} {name} ring" if count == 1 else f"{count} {name} rings" for count, name in zip(counts, names)]) + '.'
+                return result
+        else:
+            return cot
+    except:
+        print(f'wrong: {cot}')
         return cot
     
 
