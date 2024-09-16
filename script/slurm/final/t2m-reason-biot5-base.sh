@@ -37,8 +37,7 @@ srun python model/reasoning_generator.py \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0 \
---lr_scheduler_type linear \
---run_id 54jprsz3
+--lr_scheduler_type linear
 
 
 
