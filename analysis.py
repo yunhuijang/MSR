@@ -231,8 +231,11 @@ def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_
 
 
 def post_process_cot(cot, mode):
+    '''
+    Removes unnecessary indents in the CoT
+    '''
     if mode == 'multiset_formula':
-        prefix = " The molecular formula is "
+        prefix = "The molecular formula is "
         output = cot[len(prefix):]
         output = output.replace(' ', '')
         return prefix+output
@@ -241,35 +244,40 @@ def post_process_cot(cot, mode):
         chain_length = ''.join(numbers)
         return f" The longest carbon chain is {chain_length} carbons long."
     elif mode == 'con_ring_name':
-        prefix = " It includes "
-        output = cot[len(prefix):]
-        splitted = output.split('ring')[:-1]
-        splitted = [split[1:] if split[0] == ',' else split for split in splitted]
-        splitted = [split.strip() for split in splitted]
-        counts = [int(split[0]) for split in splitted]
-        names = [split[1:].replace(' ', '') for split in splitted]
-        
-        result = prefix + ', '.join([f"{count} {name} ring" if count == 1 else f"{count} {name} rings" for count, name in zip(counts, names)]) + '.'
-        return result
+        if cot == ' It does not include any ring.':
+            return cot
+        else:
+            prefix = " It includes "
+            output = cot[len(prefix):]
+            splitted = output.split('ring')[:-1]
+            splitted = [split[split.find(',')+1:] for split in splitted]
+            # splitted = [split[1:] if split[0] == ',' else split for split in splitted]
+            splitted = [split.strip() for split in splitted]
+            counts = [int(split[0]) for split in splitted]
+            names = [split[1:].replace(' ', '') for split in splitted]
+            
+            result = prefix + ', '.join([f"{count} {name} ring" if count == 1 else f"{count} {name} rings" for count, name in zip(counts, names)]) + '.'
+            return result
     else:
         return cot
     
 
-def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', hparams=None):
+def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', base_arch='biot5'):
     '''
     Compare the ground-truth CoT to predicted CoT
     '''
     # <FIX> Need to be fixed when CoT added
     result = []
-    base_arch = hparams.architecture.split('-')[0]
+    # base_arch = hparams.architecture.split('-')[0]
     cot_modes = cot_mode.split('-')
     for i, mode in enumerate(cot_modes):
         is_only_count = False
         is_func = False
         print(f'Analysis for {mode}')
+        predicted_cot_list = [cot.replace('..', '.') for cot in predicted_cot_list]
         cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
         if base_arch == 'biot5':
-            cur_predicted_cot_list = [post_process_cot(pred, mode) for pred in predicted_cot_list]
+            cur_predicted_cot_list = [post_process_cot(pred, mode) for _, pred in enumerate(cur_predicted_cot_list)]
         
         cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
         
@@ -280,7 +288,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', hpara
                         'iupac': map_iupac_from_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_from_cot}
         
         gt_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_gt_cot_list]
-        pred_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_predicted_cot_list]
+        pred_info_list = [cot_function_dict.get(mode)(gt) for _, gt in enumerate(cur_predicted_cot_list)]
         if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral']:
             is_only_count = True
         if 'func' in mode:
