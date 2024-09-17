@@ -38,7 +38,8 @@ srun python model/one_stage_generator_mol2text.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---force
+--force \
+--run_id pv5vd4jr
 
 
 
