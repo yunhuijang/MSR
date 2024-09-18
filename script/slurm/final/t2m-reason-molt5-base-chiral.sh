@@ -2,7 +2,8 @@
 
 #SBATCH -J molbase-final-t2m-reason-chiral
 #SBATCH --exclude=n76,n56,n54,n79
-#SBATCH -p A6000
+#SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
