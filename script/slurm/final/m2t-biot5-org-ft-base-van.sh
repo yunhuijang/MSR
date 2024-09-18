@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J biobase-org-final-m2t-van
+#SBATCH -J biobase-org-ft-final-m2t-van
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
@@ -22,7 +22,7 @@ date
 nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
---architecture biot5-base \
+--architecture biot5-base-mol2text \
 --wandb_mode online \
 --train_batch_size 16 \
 --eval_batch_size 16 \
