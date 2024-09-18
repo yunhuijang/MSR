@@ -36,7 +36,8 @@ srun python model/reasoning_generator.py \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --lr_scheduler_type cosine \
---check_val_every_n_epoch 10
+--check_val_every_n_epoch 10 \
+--run_id quhxii0g
 
 
 
