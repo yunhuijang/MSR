@@ -34,9 +34,9 @@ srun python model/reasoning_generator.py \
 --generation_mode \
 --max_new_tokens 256 \
 --check_val_every_n_epoch 20 \
---run_id 782aqlxw
-
-
+--learning_rate 1e-3 \
+--warmup_ratio 0.1 \
+--lr_scheduler_type cosine
 
 
 
