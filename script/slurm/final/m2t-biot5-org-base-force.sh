@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J biobase-org-final-m2t-force-lr
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH -J m2t-biot5-org-base-force
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
@@ -31,14 +31,15 @@ srun python model/one_stage_generator_mol2text.py \
 --epochs 250 \
 --model_id QizhiPei \
 --weight_decay 0 \
---learning_rate 2e-3 \
+--learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --check_val_every_n_epoch 50 \
 --lr_scheduler_type cosine \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---force
+--force \
+--run_id b6612o46
 
 
 

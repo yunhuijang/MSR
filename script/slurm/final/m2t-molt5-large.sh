@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J mollarge-final-m2t
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH -J m2t-molt5-large
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4

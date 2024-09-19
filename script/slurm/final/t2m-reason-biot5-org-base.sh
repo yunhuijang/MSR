@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J t2m-reason-biot5-org-base
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out

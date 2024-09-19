@@ -1,7 +1,7 @@
 #!/bin/sh
 
-#SBATCH -J biobase-final-t2m-answer
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH -J t2m-answer-biot5-mol2text-true
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out

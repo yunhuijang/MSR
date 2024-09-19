@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J mollarge-final-chiral-m2t
+#SBATCH -J m2t-molt5-large-chiral
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu

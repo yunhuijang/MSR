@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J mollarge-final-t2m-reason-chiral
+#SBATCH -J t2m-reason-molt5-large-chiral
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
