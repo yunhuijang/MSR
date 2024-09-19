@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J m25-chemt5
+#SBATCH -J t2m-reason-chemt5
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
@@ -21,7 +21,7 @@ date
 
 nvidia-smi
 
-srun python model/one_stage_generator_mol2text.py \
+srun python model/reasoning_generator.py \
 --architecture multitask-text-and-chemistry-t5-base-standard \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
@@ -29,11 +29,15 @@ srun python model/one_stage_generator_mol2text.py \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id GT4SD \
---weight_decay 0 \
---learning_rate 6e-4 \
---warmup_ratio 0.1 \
---check_val_every_n_epoch 20 \
---lr_scheduler_type linear \
 --max_length 820 \
 --generation_mode \
---max_new_tokens 512
+--max_new_tokens 256 \
+--check_val_every_n_epoch 10 \
+--weight_decay 0 \
+--learning_rate 1e-3 \
+--warmup_ratio 0 \
+--lr_scheduler_type linear
+
+
+
+
