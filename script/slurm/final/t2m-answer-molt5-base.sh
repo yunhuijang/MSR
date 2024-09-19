@@ -25,8 +25,8 @@ srun python model/answer_generator.py \
 --architecture molt5-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \
@@ -36,7 +36,7 @@ srun python model/answer_generator.py \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --lr_scheduler_type cosine \
---check_val_every_n_epoch 10
+--check_val_every_n_epoch 20
 
 
 
