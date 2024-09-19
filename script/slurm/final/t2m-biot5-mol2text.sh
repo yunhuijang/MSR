@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J mollarge-final-t2m
+#SBATCH -J biobase-org-ft--final-t2m
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
