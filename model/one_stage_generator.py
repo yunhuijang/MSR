@@ -108,7 +108,7 @@ class FineTuneTranslator(pl.LightningModule):
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20',  'biot5-base-mol2text', 'biot5-base-text2mol'])
-        parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_simple-chain-aromatic-con_ring_name', 
+        parser.add_argument("--cot_mode", type=str, default='', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")

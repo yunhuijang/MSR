@@ -50,12 +50,14 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
-            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}-{self.run_name}.txt'
+            if self.hparams.is_true:
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
+            else:
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}-{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             data_dict['cot'] = cot_list[:len(gt_smiles_list)]
 
-            
         dataset = Dataset.from_dict(data_dict)
         
         
@@ -81,10 +83,10 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='biot5-base-text2mol', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol'])
-        parser.add_argument("--cot_mode", type=str, default='func_simple-chain-aromatic-con_ring_name', 
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -99,7 +101,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
@@ -107,6 +109,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--lr_scheduler_type', type=str, default='cosine')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
+        parser.add_argument('--is_true', action='store_true')
 
 
         return parser
@@ -143,6 +146,9 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
             else:
                 gt_smiles, predicted_smiles = self.generaate_samples(self.test_dataset, generation_mode=self.hparams.generation_mode)
                 file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+                
+            if self.hparams.is_true:
+                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-true.txt'
             description_list = self.test_dataset['description']
             
             with open(f'{file_name}', 'w') as f:
