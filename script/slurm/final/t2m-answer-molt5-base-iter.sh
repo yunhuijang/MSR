@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-answer-molt5-base
+#SBATCH -J t2m-answer-molt5-base-iter
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
@@ -36,7 +36,8 @@ srun python model/answer_generator.py \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --lr_scheduler_type cosine \
---check_val_every_n_epoch 10
+--check_val_every_n_epoch 10 \
+--is_iterative
 
 
 
