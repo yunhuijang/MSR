@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J t2m-reason-chemt5
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
@@ -34,7 +34,7 @@ srun python model/reasoning_generator.py \
 --max_new_tokens 256 \
 --check_val_every_n_epoch 10 \
 --weight_decay 0 \
---learning_rate 1e-3 \
+--learning_rate 6e-4 \
 --warmup_ratio 0 \
 --lr_scheduler_type linear
 
