@@ -2,8 +2,7 @@
 
 #SBATCH -J biobase-final-t2m-answer
 #SBATCH --exclude=n76,n56,n54,n79
-#SBATCH -p A100-80GB
-#SBATCH -q add_hpgpu
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -26,8 +25,8 @@ srun python model/answer_generator.py \
 --architecture biot5-base-text2mol \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei \
 --max_length 820 \
