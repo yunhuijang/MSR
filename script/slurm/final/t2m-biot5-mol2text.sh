@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J biobase-org-ft--final-t2m
+#SBATCH -J biobase-org-ft-final-t2m
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
@@ -24,7 +24,7 @@ nvidia-smi
 srun python model/one_stage_generator.py \
 --architecture biot5-base-text2mol \
 --wandb_mode online \
---train_batch_size 8 \
+--train_batch_size 16 \
 --eval_batch_size 8 \
 --epochs 250 \
 --model_id QizhiPei \
@@ -35,7 +35,8 @@ srun python model/one_stage_generator.py \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
---lr_scheduler_type cosine
+--lr_scheduler_type cosine \
+--run_id yvejbpm0
 
 
 
