@@ -96,7 +96,7 @@ def map_multiset_cot(smiles_list, mode='simple'):
     
     if mode == 'formula':
         mol_list = [Chem.MolFromSmiles(smiles) for smiles in smiles_list]
-        multiset_cot = [f" The molecular formula is {Chem.rdMolDescriptors.CalcMolFormula(Chem.MolFromSmiles(mol))}." if mol is not None else 'The molecular formula is unknown.' for mol in mol_list]
+        multiset_cot = [f" The molecular formula is {Chem.rdMolDescriptors.CalcMolFormula(mol)}." if mol is not None else 'The molecular formula is unknown.' for mol in mol_list]
         
     else:
         multiset_cot = []
