@@ -37,7 +37,7 @@ class FineTuneReasoning(FineTuneTranslator):
 
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-base')
+        parser.add_argument("--architecture", type=str, default='biot5-base-text2mol')
         parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
@@ -53,7 +53,7 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
