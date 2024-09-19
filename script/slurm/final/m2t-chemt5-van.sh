@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J m25-chemt5
+#SBATCH -J m2t-chemt5-van
 #SBATCH --exclude=n76,n56,n54,n79
 #SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
