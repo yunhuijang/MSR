@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #SBATCH -J mollarge-final-chiral-m2t
-#SBATCH --exclude=n76,n56,n54,n79
+#SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
@@ -33,7 +33,7 @@ srun python model/one_stage_generator_mol2text.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---check_val_every_n_epoch 10 \
+--check_val_every_n_epoch 20 \
 --run_id 260jy6e3
 
 
