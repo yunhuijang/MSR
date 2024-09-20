@@ -23,6 +23,7 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture multitask-text-and-chemistry-t5-base-augm \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
