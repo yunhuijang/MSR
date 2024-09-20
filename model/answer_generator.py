@@ -91,7 +91,7 @@ class FineTuneAnswer(FineTuneTranslator):
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
         parser.add_argument("--wandb_mode", type=str, default='disabled')
-        parser.add_argument("--learning_rate", type=float, default=2e-5)
+        parser.add_argument("--learning_rate", type=float, default=1e-3)
         parser.add_argument("--train_batch_size", type=int, default=3)
         parser.add_argument("--eval_batch_size", type=int, default=3)
         parser.add_argument("--weight_decay", type=float, default=0)
@@ -105,8 +105,8 @@ class FineTuneAnswer(FineTuneTranslator):
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
-        parser.add_argument('--warmup_ratio', type=float, default=0.1)
-        parser.add_argument('--lr_scheduler_type', type=str, default='cosine')
+        parser.add_argument('--warmup_ratio', type=float, default=0)
+        parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--is_true', action='store_true')
@@ -155,7 +155,6 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                 f.write('description' + '\t' + 'ground truth' + '\t' + 'output' + '\n')
                 for desc, rt, ot in zip(description_list, gt_smiles, predicted_smiles):
                     f.write(desc + '\t' + rt + '\t' + ot + '\n')
-            
             columns = ['description', 'gt_smiles', 'predicted_smiles']
             result_data = [description_list, gt_smiles, predicted_smiles]
             

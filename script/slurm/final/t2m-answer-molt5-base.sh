@@ -33,9 +33,9 @@ srun python model/answer_generator.py \
 --generation_mode \
 --max_new_tokens 512 \
 --weight_decay 0 \
---learning_rate 1e-3 \
---warmup_ratio 0.1 \
---lr_scheduler_type cosine \
+--learning_rate 0.00002 \
+--warmup_ratio 0 \
+--lr_scheduler_type linear \
 --check_val_every_n_epoch 20
 
 
