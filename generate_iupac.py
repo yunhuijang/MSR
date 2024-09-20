@@ -10,14 +10,15 @@ import json
 from util_cot import map_iupac_cot, smiles_to_iupac
 
 from itertools import combinations
-from util_cot import merge_connected_ring, get_ring_substructure, get_subs
+from util_cot import *
+import argparse
 
 print(os.getcwd())
 
 
-def generate_molecule_iupac(smiles_list):
+def generate_molecule_iupac(smiles_list, output_path):
     iupac_list = [smiles_to_iupac(smi) for smi in tqdm(smiles_list)]
-    output_path = os.path.join('ChEBI-20_data', f'{split}_iupac.txt')
+    # output_path = os.path.join('ChEBI-20_data', f'{split}_iupac.txt')
 
     with open(output_path, 'w') as f:
         for frag in iupac_list:
@@ -61,30 +62,42 @@ def generate_connect_ring_iupac(ri, mol):
 
     return final_result
 
-def flatten(xss):
-    return [x for xs in xss for x in xs]
+def add_args(parser):
+    parser.add_argument("--split", type=str, default='train', help="train, test, or validation")
 
-total_smiles_list = []
-for split in ['train', 'test']:
-    smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
-    smiles_pair_list = [
-    [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-    ][1:]
-    smiles_list = [pair[1] for pair in smiles_pair_list]
-    total_smiles_list.extend(smiles_list)
-    
-mols = [Chem.MolFromSmiles(s) for s in total_smiles_list]
-ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
-connected_rings = [generate_connect_ring_iupac(ri, mol) for ri, mol in zip(tqdm(ring_info), mols)]
-ring_smiles = flatten(connected_rings)
-ring_smiles = set(ring_smiles)
+parser = argparse.ArgumentParser()
+add_args(parser)
+hparams = parser.parse_args()
+split = hparams.split
 
-connected_ring_iupac_dict = {}
-for smi in tqdm(ring_smiles, 'Map IUPAC'):
-    connected_ring_iupac_dict[smi] = smiles_to_iupac(smi)
+output_path = os.path.join('ChEBI-20_data', f'dict_iupac_{split}.json')
+try:
+    total_dict = json.dump(output_path)
+except:
+    total_dict = {}
+smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+smiles_pair_list = [
+[pair.split('\t')[0], pair.split('\t')[1], pair.split('\t')[2]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+][1:]
+smiles_list = [pair[1] for pair in smiles_pair_list]
+for smi in tqdm(smiles_list):
+    iupac = smiles_to_iupac(smi)
+    total_dict[smi] = iupac
+    if len(total_dict) % 10 == 0:
+        json.dump(total_dict, open(output_path, 'w'))
+        
+# mols = [Chem.MolFromSmiles(s) for s in total_smiles_list]
+# ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
+# connected_rings = [generate_connect_ring_iupac(ri, mol) for ri, mol in zip(tqdm(ring_info), mols)]
+# ring_smiles = flatten(connected_rings)
+# ring_smiles = set(ring_smiles)
 
-with open('resource/data/total_ring_to_iupac.json', 'w') as f:
-    json.dump(connected_ring_iupac_dict, f)
+# connected_ring_iupac_dict = {}
+# for smi in tqdm(ring_smiles, 'Map IUPAC'):
+#     connected_ring_iupac_dict[smi] = smiles_to_iupac(smi)
+
+# with open('resource/data/total_ring_to_iupac.json', 'w') as f:
+#     json.dump(connected_ring_iupac_dict, f)
 
 
 
