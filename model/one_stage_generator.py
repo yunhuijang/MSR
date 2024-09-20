@@ -5,7 +5,6 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 import argparse
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 import pandas as pd
@@ -107,7 +106,9 @@ class FineTuneTranslator(pl.LightningModule):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
-                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20',  'biot5-base-mol2text', 'biot5-base-text2mol'])
+                                                                                        'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20',  'biot5-base-mol2text', 'biot5-base-text2mol',
+                                                                                        'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
+                                                                                        'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'])
         parser.add_argument("--cot_mode", type=str, default='', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
