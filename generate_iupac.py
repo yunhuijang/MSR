@@ -83,7 +83,7 @@ smiles_list = [pair[1] for pair in smiles_pair_list]
 for smi in tqdm(smiles_list):
     iupac = smiles_to_iupac(smi)
     total_dict[smi] = iupac
-    if len(total_dict) % 10 == 0:
+    if len(total_dict) % 100 == 0:
         json.dump(total_dict, open(output_path, 'w'))
         
 # mols = [Chem.MolFromSmiles(s) for s in total_smiles_list]
