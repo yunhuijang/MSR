@@ -124,7 +124,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
