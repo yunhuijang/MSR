@@ -20,7 +20,8 @@ from thermo import functional_groups
 from inspect import getmembers, isfunction
 from rdkit.Chem.rdchem import EditableMol
 from rdkit.Chem import FindMolChiralCenters
-
+from rdkit.Chem import rdMolDescriptors
+import requests
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
@@ -627,7 +628,9 @@ def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
                             'chain': map_carbon_chain_length, 'fragment': map_fragment_cot, 'ring': map_ring_cot, 'multiset_simple': map_multiset_cot, \
                             'multiset_full': map_multiset_cot, 'multiset_formula': map_multiset_cot, 'multiset_type': map_multiset_cot, \
                             'aromatic': map_aromatic_ring_cot, 'ring_name': map_ring_name_cot, 'con_ring_name': map_connected_ring_name_cot, \
-                            'iupac': map_iupac_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_center_cot}
+                            'iupac': map_iupac_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_center_cot,
+                            'weight': map_weight_cot, 'name': map_name_cot, 'func_chem': map_chem_functional_group_cot
+                            }
         cot_function = cot_function_dict.get(cm)
         if ('multiset' in cm) or ('func' in cm):
             mode = cm.split('_')[1]
@@ -642,3 +645,126 @@ def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
     data_dict['cot'] = cot_list
     
     return data_dict
+
+# Codes adapted from https://github.com/ur-whitelab/chemcrow-public
+
+def is_cas(text):
+    pattern = r"^\d{2,7}-\d{2}-\d$"
+    return re.match(pattern, text) is not None
+
+def smiles2name(smi, single_name=True):
+    """This function queries the given molecule smiles and returns a name record or iupac"""
+
+    try:
+        smi = Chem.MolToSmiles(Chem.MolFromSmiles(smi), canonical=True)
+    except Exception:
+        raise ValueError("Invalid SMILES string")
+    # query the PubChem database
+    r = requests.get(
+        "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/"
+        + smi
+        + "/synonyms/JSON"
+    )
+    # return the SMILES string
+    try:
+        data = r.json()
+        if single_name:
+            index = 0
+            names = data["InformationList"]["Information"][0]["Synonym"]
+            while is_cas(name := names[index]):
+                index += 1
+                if index == len(names):
+                    raise ValueError("No name found")
+        else:
+            name = data["InformationList"]["Information"][0]["Synonym"]
+    except:
+        name = ""
+    return name
+
+def map_name_cot(smiles_list):
+    iupac_path = os.path.join('ChEBI-20_data', f'dict_iupac.json')
+    iupac_dict = json.load(open(iupac_path, 'r'))
+    iupac_list = [iupac_dict.get(smi, "") for smi in smiles_list]
+    cot_list = [f" The IUPAC name of the molecule is {iupac}." if len(iupac)>0 else " The name of the molecule is not available." for iupac in iupac_list]
+    
+    return cot_list
+
+def smiles2weight(smi):
+    mol = Chem.MolFromSmiles(smi)
+    return rdMolDescriptors.CalcExactMolWt(mol)
+
+def map_weight_cot(smiles_list):
+    weight_list = [smiles2weight(smi) for smi in tqdm(smiles_list)]
+    cot_list = [f" The molecular weight is {weight} g/mol." for weight in weight_list]
+    
+    return cot_list
+
+def map_chem_functional_group_cot(smiles_list): 
+    fg_dict = {
+            "furan": "o1cccc1",
+            "aldehydes": " [CX3H1](=O)[#6]",
+            "esters": " [#6][CX3](=O)[OX2H0][#6]",
+            "ketones": " [#6][CX3](=O)[#6]",
+            "amides": " C(=O)-N",
+            "thiol groups": " [SH]",
+            "alcohol groups": " [OH]",
+            "methylamide": "*-[N;D2]-[C;D3](=O)-[C;D1;H3]",
+            "carboxylic acids": "*-C(=O)[O;D1]",
+            "carbonyl methylester": "*-C(=O)[O;D2]-[C;D1;H3]",
+            "terminal aldehyde": "*-C(=O)-[C;D1]",
+            "amide": "*-C(=O)-[N;D1]",
+            "carbonyl methyl": "*-C(=O)-[C;D1;H3]",
+            "isocyanate": "*-[N;D2]=[C;D2]=[O;D1]",
+            "isothiocyanate": "*-[N;D2]=[C;D2]=[S;D1]",
+            "nitro": "*-[N;D3](=[O;D1])[O;D1]",
+            "nitroso": "*-[N;R0]=[O;D1]",
+            "oximes": "*=[N;R0]-[O;D1]",
+            "Imines": "*-[N;R0]=[C;D1;H2]",
+            "terminal azo": "*-[N;D2]=[N;D2]-[C;D1;H3]",
+            "hydrazines": "*-[N;D2]=[N;D1]",
+            "diazo": "*-[N;D2]#[N;D1]",
+            "cyano": "*-[C;D2]#[N;D1]",
+            "primary sulfonamide": "*-[S;D4](=[O;D1])(=[O;D1])-[N;D1]",
+            "methyl sulfonamide": "*-[N;D2]-[S;D4](=[O;D1])(=[O;D1])-[C;D1;H3]",
+            "sulfonic acid": "*-[S;D4](=O)(=O)-[O;D1]",
+            "methyl ester sulfonyl": "*-[S;D4](=O)(=O)-[O;D2]-[C;D1;H3]",
+            "methyl sulfonyl": "*-[S;D4](=O)(=O)-[C;D1;H3]",
+            "sulfonyl chloride": "*-[S;D4](=O)(=O)-[Cl]",
+            "methyl sulfinyl": "*-[S;D3](=O)-[C;D1]",
+            "methyl thio": "*-[S;D2]-[C;D1;H3]",
+            "thiols": "*-[S;D1]",
+            "thio carbonyls": "*=[S;D1]",
+            "halogens": "*-[#9,#17,#35,#53]",
+            "t-butyl": "*-[C;D4]([C;D1])([C;D1])-[C;D1]",
+            "tri fluoromethyl": "*-[C;D4](F)(F)F",
+            "acetylenes": "*-[C;D2]#[C;D1;H]",
+            "cyclopropyl": "*-[C;D3]1-[C;D2]-[C;D2]1",
+            "ethoxy": "*-[O;D2]-[C;D2]-[C;D1;H3]",
+            "methoxy": "*-[O;D2]-[C;D1;H3]",
+            "side-chain hydroxyls": "*-[O;D1]",
+            "ketones": "*=[O;D1]",
+            "primary amines": "*-[N;D1]",
+            "nitriles": "*#[N;D1]",
+        }
+    
+    fgmol_dict = {fg_name: Chem.MolFromSmarts(fg) for fg_name, fg in fg_dict.items()}
+    fg_list = [smiles2chem_functional_group(smi, fgmol_dict) for smi in smiles_list]
+    fg_cot = []
+    for fgs_in_molec in fg_list:
+        if len(fgs_in_molec) > 1:
+            fg_cot.append(f"This molecule contains {', '.join(fgs_in_molec[:-1])}, and {fgs_in_molec[-1]}.")
+        elif len(fgs_in_molec) == 1:
+            fg_cot.append(f"This molecule contains {fgs_in_molec[0]}.")
+        else:
+            fg_cot.append("This molecule does not contain any functional group.")
+    return fg_cot
+
+    
+def smiles2chem_functional_group(smi, fgmol_dict):
+    mol = Chem.MolFromSmiles(smi)
+    fg_list = []
+    for fg_name, fg_mol in fgmol_dict.items():
+        if len(Chem.Mol.GetSubstructMatches(mol, fg_mol, uniquify=True))>0:
+            fg_list.append(fg_name)
+    return fg_list
+        

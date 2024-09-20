@@ -72,7 +72,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
                                                                                         'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'
                                                                                         ])
 # multiset_formula-func_simple-chain-aromatic-con_ring_name
-        parser.add_argument("--cot_mode", type=str, default='multiset_formula', 
+        parser.add_argument("--cot_mode", type=str, default='', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
