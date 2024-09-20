@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-chemt5-aug-small-van
+#SBATCH -J t2m-chemt5-aug-base-van
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
