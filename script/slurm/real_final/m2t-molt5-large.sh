@@ -24,7 +24,7 @@ nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
 --architecture molt5-large \
---cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-weight-name \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
 --train_batch_size 4 \
 --eval_batch_size 4 \
