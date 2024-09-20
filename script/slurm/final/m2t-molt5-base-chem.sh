@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J m2t-biot5-base-force
+#SBATCH -J m2t-molt5-base-chem
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
@@ -23,23 +23,17 @@ date
 nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
---architecture biot5-plus-base-chebi20 \
---cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
+--architecture molt5-base \
+--cot_mode name-weight-func_chem \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
---model_id QizhiPei \
---weight_decay 0 \
---learning_rate 1e-3 \
---warmup_ratio 0.1 \
---check_val_every_n_epoch 20 \
---lr_scheduler_type cosine \
+--model_id laituan245 \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---force \
---run_id pv5vd4jr
+--check_val_every_n_epoch 20
 
 
 

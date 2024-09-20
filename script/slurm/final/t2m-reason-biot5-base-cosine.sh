@@ -32,7 +32,7 @@ srun python model/reasoning_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 256 \
---check_val_every_n_epoch 10 \
+--check_val_every_n_epoch 20 \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \

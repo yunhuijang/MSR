@@ -30,7 +30,7 @@ srun python model/answer_generator.py \
 --max_length 512 \
 --model_id laituan245 \
 --max_length 820 \
---check_val_every_n_epoch 5
+--check_val_every_n_epoch 20
 
 
 

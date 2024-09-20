@@ -27,7 +27,7 @@ srun python model/one_stage_generator.py \
 --wandb_mode online \
 --train_batch_size 4 \
 --eval_batch_size 4 \
---check_val_every_n_epoch 5 \
+--check_val_every_n_epoch 20 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \
