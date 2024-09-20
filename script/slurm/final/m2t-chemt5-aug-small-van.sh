@@ -24,8 +24,8 @@ nvidia-smi
 srun python model/one_stage_generator_mol2text.py \
 --architecture multitask-text-and-chemistry-t5-small-augm \
 --wandb_mode online \
---train_batch_size 32 \
---eval_batch_size 32 \
+--train_batch_size 16 \
+--eval_batch_size 16 \
 --epochs 250 \
 --model_id GT4SD \
 --weight_decay 0 \
