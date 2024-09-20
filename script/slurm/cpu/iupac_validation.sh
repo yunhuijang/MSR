@@ -3,6 +3,7 @@
 #SBATCH -J iupac_validation
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p cpu-max16
+#SBATCH -q nogpu
 #SBATCH -n 16
 #SBATCH -o sbatch_log/%x.out
 

@@ -4,6 +4,7 @@
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p cpu-max16
 #SBATCH -n 16
+#SBATCH -q nogpu
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
