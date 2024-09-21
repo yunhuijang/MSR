@@ -223,7 +223,7 @@ if __name__ == "__main__":
                group='ft_cot')
     else:
         if hparams.architecture.split('-') == 'multitask':
-            wandb.init(project='text2mol', name=f'chemt5-{'-'.join(hparams.architecture.split('-')[-2:])}-{run_name}-ft-m2t', mode=hparams.wandb_mode,
+            wandb.init(project='text2mol', name=f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}-{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
         else:
             wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
