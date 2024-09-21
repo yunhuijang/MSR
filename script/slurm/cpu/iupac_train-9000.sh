@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J iupac_train
+#SBATCH -J iupac_train_9000
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p cpu-max16
 #SBATCH -q nogpu
@@ -23,4 +23,5 @@ date
 nvidia-smi
 
 srun python generate_iupac.py \
---split train
+--split train \
+--start_index 9000

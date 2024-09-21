@@ -64,26 +64,32 @@ def generate_connect_ring_iupac(ri, mol):
 
 def add_args(parser):
     parser.add_argument("--split", type=str, default='train', help="train, test, or validation")
-
+    parser.add_argument("--start_index", type=int, default=0)
 parser = argparse.ArgumentParser()
 add_args(parser)
 hparams = parser.parse_args()
 split = hparams.split
+start_index = hparams.start_index
 
-output_path = os.path.join('ChEBI-20_data', f'dict_iupac_{split}_test.json')
+load_path = os.path.join('ChEBI-20_data', f'dict_iupac_final.json')
+output_path = os.path.join('ChEBI-20_data', f'dict_iupac_final_{start_index}.json')
 try:
-    total_dict = json.dump(output_path)
+    with open(load_path, 'r') as f:
+        total_dict = json.load(f)
 except:
     total_dict = {}
 smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
 smiles_pair_list = [
 [pair.split('\t')[0], pair.split('\t')[1], pair.split('\t')[2]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-][1:][:100]
+][1:][start_index:start_index+9000]
 smiles_list = [pair[1] for pair in smiles_pair_list]
 for smi in tqdm(smiles_list):
-    iupac = smiles_to_iupac(smi)
+    if smi in total_dict.keys():
+        continue
+    # iupac = smiles_to_iupac(smi)
+    iupac = smiles2name(smi)
     total_dict[smi] = iupac
-    if len(total_dict) % 50 == 0:
+    if (len(total_dict) % 100 == 0) or (len(total_dict) == len(smiles_list)):
         json.dump(total_dict, open(output_path, 'w'))
         
 
