@@ -72,7 +72,7 @@ split = hparams.split
 start_index = hparams.start_index
 
 load_path = os.path.join('ChEBI-20_data', f'dict_iupac_final.json')
-output_path = os.path.join('ChEBI-20_data', f'dict_iupac_final_{start_index}.json')
+# output_path = os.path.join('ChEBI-20_data', f'dict_iupac_final_{start_index}.json')
 try:
     with open(load_path, 'r') as f:
         total_dict = json.load(f)
@@ -81,7 +81,7 @@ except:
 smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
 smiles_pair_list = [
 [pair.split('\t')[0], pair.split('\t')[1], pair.split('\t')[2]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-][1:][start_index:start_index+9000]
+][1:]
 smiles_list = [pair[1] for pair in smiles_pair_list]
 for smi in tqdm(smiles_list):
     if smi in total_dict.keys():
@@ -90,9 +90,9 @@ for smi in tqdm(smiles_list):
     # iupac = smiles2name(smi)
     total_dict[smi] = iupac
     # if (len(total_dict) % 100 == 0) or (len(total_dict) == len(smiles_list)):
-    json.dump(total_dict, open(output_path, 'w'))
-        
-
+    json.dump(total_dict, open(load_path, 'w'))
+print(len(total_dict))
+print(len(smiles_list))
 
 
 
