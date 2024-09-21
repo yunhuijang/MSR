@@ -680,6 +680,7 @@ def smiles2name(smi, single_name=True):
         else:
             name = data["InformationList"]["Information"][0]["Synonym"]
     except:
+        logging.warning(r.json())
         logging.warning(f"Error in mapping SMILES: {smi}")
         name = ""
     return name
