@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J t2m-chemt5-aug-base-van
+#SBATCH -J t2m-chemt5-aug-van
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p RTX6000ADA
+#SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -24,8 +24,8 @@ nvidia-smi
 srun python model/one_stage_generator.py \
 --architecture multitask-text-and-chemistry-t5-base-augm \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 32 \
+--eval_batch_size 32 \
 --epochs 250 \
 --model_id GT4SD \
 --max_length 820 \
