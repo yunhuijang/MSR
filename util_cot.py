@@ -687,7 +687,7 @@ def smiles2name(smi, single_name=True):
     return name
 
 def map_name_cot(smiles_list):
-    iupac_path = os.path.join('ChEBI-20_data', f'dict_iupac.json')
+    iupac_path = os.path.join('ChEBI-20_data', f'dict_iupac_final.json')
     iupac_dict = json.load(open(iupac_path, 'r'))
     iupac_list = [iupac_dict.get(smi, "") for smi in smiles_list]
     cot_list = [f" The IUPAC name of the molecule is {iupac}." if len(iupac)>0 else " The name of the molecule is not available." for iupac in iupac_list]
