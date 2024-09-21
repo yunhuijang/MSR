@@ -2,7 +2,7 @@
 
 #SBATCH -J t2m-reason-chemt5
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p RTX6000ADA
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -25,8 +25,8 @@ srun python model/reasoning_generator.py \
 --architecture multitask-text-and-chemistry-t5-base-augm \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id GT4SD \
 --max_length 820 \
