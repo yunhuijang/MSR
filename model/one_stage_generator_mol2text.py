@@ -222,8 +222,12 @@ if __name__ == "__main__":
         wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
-        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
+        if hparams.architecture.split('-') == 'multitask':
+            wandb.init(project='text2mol', name=f'chemt5-{'-'.join(hparams.architecture.split('-')[-2:])}-{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot', resume='must', id=hparams.run_id)
+        else:
+            wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
+                group='ft_cot', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(
         output_dir=f"output/{wandb.run.id}",
