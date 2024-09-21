@@ -89,8 +89,8 @@ for smi in tqdm(smiles_list):
     iupac = smiles_to_iupac(smi)
     # iupac = smiles2name(smi)
     total_dict[smi] = iupac
-    if (len(total_dict) % 100 == 0) or (len(total_dict) == len(smiles_list)):
-        json.dump(total_dict, open(output_path, 'w'))
+    # if (len(total_dict) % 100 == 0) or (len(total_dict) == len(smiles_list)):
+    json.dump(total_dict, open(output_path, 'w'))
         
 
 
