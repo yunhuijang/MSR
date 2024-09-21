@@ -24,8 +24,8 @@ nvidia-smi
 srun python model/one_stage_generator.py \
 --architecture multitask-text-and-chemistry-t5-base-augm \
 --wandb_mode online \
---train_batch_size 32 \
---eval_batch_size 32 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id GT4SD \
 --max_length 820 \
