@@ -3,6 +3,7 @@
 #SBATCH -J t2m-chemt5-aug-van
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
+#SBATCH -q add_hpgpu
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
