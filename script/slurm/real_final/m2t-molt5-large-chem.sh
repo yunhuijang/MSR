@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J m2t-molt5-base-chem
+#SBATCH -J m2t-molt5-large-chem
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q hpgpu
@@ -23,17 +23,17 @@ date
 nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
---architecture molt5-base \
+--architecture molt5-large \
 --cot_mode name-weight-func_chem \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 4 \
+--eval_batch_size 4 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---check_val_every_n_epoch 20
+--check_val_every_n_epoch 40
 
 
 
