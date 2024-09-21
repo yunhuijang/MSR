@@ -217,18 +217,19 @@ if __name__ == "__main__":
     # for hugging face login
     HfFolder.save_token('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')
     
-
+    if hparams.architecture.split('-') == 'multitask':
+        arch = f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}'
+    else:
+        arch = hparams.architecture
+    
+    
     if hparams.run_id == '':
-        wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
+        wandb.init(project='text2mol', name=f'{arch}{run_name}-ft-m2t', mode=hparams.wandb_mode,
                group='ft_cot')
     else:
-        if hparams.architecture.split('-') == 'multitask':
-            wandb.init(project='text2mol', name=f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}-{run_name}-ft-m2t', mode=hparams.wandb_mode,
-               group='ft_cot', resume='must', id=hparams.run_id)
-        else:
-            wandb.init(project='text2mol', name=f'{hparams.architecture}{run_name}-ft-m2t', mode=hparams.wandb_mode,
-                group='ft_cot', resume='must', id=hparams.run_id)
-    
+        wandb.init(project='text2mol', name=f'{arch}{run_name}-ft-m2t', mode=hparams.wandb_mode,
+            group='ft_cot', resume='must', id=hparams.run_id)
+
     training_args = Seq2SeqTrainingArguments(
         output_dir=f"output/{wandb.run.id}",
         eval_strategy="epoch",

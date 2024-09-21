@@ -697,7 +697,7 @@ def smiles2weight(smi):
 
 def map_weight_cot(smiles_list):
     weight_list = [smiles2weight(smi) for smi in tqdm(smiles_list)]
-    cot_list = [f" The molecular weight is {round(weight,2)}g/mol." for weight in weight_list]
+    cot_list = [f" The molecular weight is {int(round(weight,0))}g/mol." for weight in weight_list]
     
     return cot_list
 

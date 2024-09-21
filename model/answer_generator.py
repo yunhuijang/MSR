@@ -242,11 +242,16 @@ if __name__ == "__main__":
     # for hugging face login
     HfFolder.save_token('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')
     
+    if hparams.architecture.split('-') == 'multitask':
+        arch = f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}'
+    else:
+        arch = hparams.architecture
+    
     if hparams.run_id == '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-answer', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=f'{arch}{run_name}-ft-answer', mode=hparams.wandb_mode,
                group='ft_cot_answer')
     else:
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-answer', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=f'{arch}{run_name}-ft-answer', mode=hparams.wandb_mode,
                group='ft_cot_answer', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(

@@ -37,8 +37,8 @@ class FineTuneReasoning(FineTuneTranslator):
 
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-base-text2mol')
-        parser.add_argument("--cot_mode", type=str, default='multiset_formula-func_smiles-chain-aromatic-con_ring_name', 
+        parser.add_argument("--architecture", type=str, default='molt5-base')
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -53,7 +53,7 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
@@ -110,10 +110,7 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
                 decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
             decoded_preds, decoded_labels = self.postprocess_text(decoded_preds, decoded_labels)
-            if self.hparams.lr_scheduler_type == 'cosine':
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}-cosine.txt'
-            else:
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             description_list = self.test_dataset['description']
             gt_cot = decoded_labels
             predicted_cot = decoded_preds
@@ -169,11 +166,16 @@ if __name__ == "__main__":
     run_name = map_cot_mode(hparams)
     HfFolder.save_token('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')
     
+    if hparams.architecture.split('-') == 'multitask':
+        arch = f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}'
+    else:
+        arch = hparams.architecture
+    
     if hparams.run_id == '':
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=f'{arch}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
                group='ft_cot_reasoning')
     else:
-        wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
+        wandb.init(project='mol2text', name=f'{arch}{run_name}-ft-reasoning', mode=hparams.wandb_mode,
                group='ft_cot_reasoning', resume='must', id=hparams.run_id)
     
     training_args = Seq2SeqTrainingArguments(
