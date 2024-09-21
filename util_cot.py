@@ -218,15 +218,16 @@ def map_symbol(mol, index, i, ring_size):
     return symbol
 
 def smiles_to_iupac(smiles):
-    # try:
-    compounds = pubchempy.get_compounds(smiles, namespace='smiles')
-    # except:
-        # logging.warning(f"Error in mapping SMILES: {smiles}")
-        # return ""
+    try:
+        compounds = pubchempy.get_compounds(smiles, namespace='smiles')
+    except:
+        logging.warning(f"Error in mapping SMILES: {smiles}")
+        return ""
     m = compounds[0]
     if m.iupac_name is None:
         return ""
     else:
+        logging.warning(f"Succeed: {m.iupac_name}")
         return m.iupac_name
 
 def map_ring_name_cot(smiles_list):

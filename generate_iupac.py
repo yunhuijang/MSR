@@ -86,8 +86,8 @@ smiles_list = [pair[1] for pair in smiles_pair_list]
 for smi in tqdm(smiles_list):
     if smi in total_dict.keys():
         continue
-    # iupac = smiles_to_iupac(smi)
-    iupac = smiles2name(smi)
+    iupac = smiles_to_iupac(smi)
+    # iupac = smiles2name(smi)
     total_dict[smi] = iupac
     if (len(total_dict) % 100 == 0) or (len(total_dict) == len(smiles_list)):
         json.dump(total_dict, open(output_path, 'w'))
