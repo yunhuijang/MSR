@@ -27,7 +27,7 @@ from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
 TOTAL_COT_MODES = ['func_simple', 'func_smiles', 'scaffold', 'chain', 'fragment', 'ring', 'multiset_simple', \
             'multiset_full', 'multiset_formula', 'multiset_type', 'aromatic', 'ring_name',  \
-            'con_ring_name', 'iupac', 'double_bond', 'chiral']
+            'con_ring_name', 'iupac', 'double_bond', 'chiral', 'weight', 'name', 'func_chem']
 
 
 def flatten(xss):
@@ -558,6 +558,8 @@ def map_connected_ring_name_cot(smiles_list):
             cot = " It does not include any ring."
 
         cot = cot.replace("  ", " ")
+        if len(cot.split(', ')) > 1:
+            cot = ', '.join(cot.split(', ')[:-1]) + ', and ' + cot.split(', ')[-1]
         ring_cot.append(cot)
         
     return ring_cot
@@ -695,7 +697,7 @@ def smiles2weight(smi):
 
 def map_weight_cot(smiles_list):
     weight_list = [smiles2weight(smi) for smi in tqdm(smiles_list)]
-    cot_list = [f" The molecular weight is {weight} g/mol." for weight in weight_list]
+    cot_list = [f" The molecular weight is {round(weight,2)}g/mol." for weight in weight_list]
     
     return cot_list
 

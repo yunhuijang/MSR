@@ -32,7 +32,7 @@ srun python model/answer_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---weight_decay 0 \
+--weight_decay 0.01 \
 --learning_rate 0.00002 \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \

@@ -65,7 +65,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
@@ -85,14 +85,14 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
         parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
         parser.add_argument('--max_length', type=int, default=512)
-        parser.add_argument('--test', action='store_false')
+        parser.add_argument('--test', action='store_true')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
-        parser.add_argument('--force', action='store_false')
+        parser.add_argument('--force', action='store_true')
 
         return parser
 
