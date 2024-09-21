@@ -2,7 +2,7 @@
 
 #SBATCH -J m2t-chemt5-aug-small
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p RTX6000ADA
+#SBATCH -p A5000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
