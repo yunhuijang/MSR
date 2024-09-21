@@ -218,11 +218,11 @@ def map_symbol(mol, index, i, ring_size):
     return symbol
 
 def smiles_to_iupac(smiles):
-    try:
-        compounds = pubchempy.get_compounds(smiles, namespace='smiles')
-    except:
-        logging.warning(f"Error in mapping SMILES: {smiles}")
-        return ""
+    # try:
+    compounds = pubchempy.get_compounds(smiles, namespace='smiles')
+    # except:
+        # logging.warning(f"Error in mapping SMILES: {smiles}")
+        # return ""
     m = compounds[0]
     if m.iupac_name is None:
         return ""
@@ -680,6 +680,7 @@ def smiles2name(smi, single_name=True):
         else:
             name = data["InformationList"]["Information"][0]["Synonym"]
     except:
+        logging.warning(f"Error in mapping SMILES: {smi}")
         name = ""
     return name
 
