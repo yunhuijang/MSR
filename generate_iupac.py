@@ -70,7 +70,7 @@ add_args(parser)
 hparams = parser.parse_args()
 split = hparams.split
 
-output_path = os.path.join('ChEBI-20_data', f'dict_iupac_{split}.json')
+output_path = os.path.join('ChEBI-20_data', f'dict_iupac_{split}_test.json')
 try:
     total_dict = json.dump(output_path)
 except:
@@ -78,27 +78,14 @@ except:
 smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
 smiles_pair_list = [
 [pair.split('\t')[0], pair.split('\t')[1], pair.split('\t')[2]] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-][1:]
+][1:][:100]
 smiles_list = [pair[1] for pair in smiles_pair_list]
 for smi in tqdm(smiles_list):
     iupac = smiles_to_iupac(smi)
     total_dict[smi] = iupac
-    if len(total_dict) % 100 == 0:
+    if len(total_dict) % 50 == 0:
         json.dump(total_dict, open(output_path, 'w'))
         
-# mols = [Chem.MolFromSmiles(s) for s in total_smiles_list]
-# ring_info = [mol.GetRingInfo().AtomRings() for mol in mols]
-# connected_rings = [generate_connect_ring_iupac(ri, mol) for ri, mol in zip(tqdm(ring_info), mols)]
-# ring_smiles = flatten(connected_rings)
-# ring_smiles = set(ring_smiles)
-
-# connected_ring_iupac_dict = {}
-# for smi in tqdm(ring_smiles, 'Map IUPAC'):
-#     connected_ring_iupac_dict[smi] = smiles_to_iupac(smi)
-
-# with open('resource/data/total_ring_to_iupac.json', 'w') as f:
-#     json.dump(connected_ring_iupac_dict, f)
-
 
 
 
