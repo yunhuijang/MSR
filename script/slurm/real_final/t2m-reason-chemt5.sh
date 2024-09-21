@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-reason-chemt5-aug-small
+#SBATCH -J t2m-reason-chemt5
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
@@ -22,11 +22,11 @@ date
 nvidia-smi
 
 srun python model/reasoning_generator.py \
---architecture multitask-text-and-chemistry-t5-small-augm \
+--architecture multitask-text-and-chemistry-t5-base-standard \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
---train_batch_size 16 \
---eval_batch_size 16 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id GT4SD \
 --max_length 820 \

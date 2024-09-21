@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J m2t-chemt5-aug-small
+#SBATCH -J m2t-chemt5-small
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
@@ -22,7 +22,7 @@ date
 nvidia-smi
 
 srun python model/one_stage_generator_mol2text.py \
---architecture multitask-text-and-chemistry-t5-small-augm \
+--architecture multitask-text-and-chemistry-t5-small-standard \
 --wandb_mode online \
 --train_batch_size 16 \
 --eval_batch_size 16 \
