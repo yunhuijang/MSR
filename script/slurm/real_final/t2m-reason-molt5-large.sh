@@ -37,6 +37,7 @@ srun python model/reasoning_generator.py \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --lr_scheduler_type cosine \
---weight_decay 0.01
+--weight_decay 0.01 \
+--run_id r6pbg6ok
 
 
