@@ -704,7 +704,7 @@ def map_weight_cot(smiles_list):
     
     return cot_list
 
-def map_chem_functional_group_cot(smiles_list): 
+def map_chem_functional_group_cot(smiles_list, mode=None): 
     fg_dict = {
             "furan": "o1cccc1",
             "aldehydes": " [CX3H1](=O)[#6]",

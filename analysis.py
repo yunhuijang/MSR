@@ -209,10 +209,33 @@ def map_chiral_from_cot(cot):
     else:
         return []
 
-def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, is_func=False):
+def map_weight_from_cot(cot):
+    try:
+        return int(round(float(re.findall(r"[-+]?(?:\d*\.*\d+)", cot)[0]),0))
+    except:
+        logging.warning(f"Error in mapping weight from CoT: {cot}")
+        return 0
+
+def map_name_from_cot(cot):
+    if cot.strip() == 'The name of the molecule is not available.':
+        return ''
+    else:
+        try:
+            form = cot.split(' ')[-1]
+            if isinstance(form, str):
+                return form.replace('.', '')
+            elif isinstance(form, list):
+                return form[0].replace('.', '')
+        except:
+            logging.warning(f"Error in mapping name from CoT: {cot}")
+            return ''
+
+def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, mode='ring'):
     # whole information of rings
-    if is_func:
+    if mode in ['func_simple', 'func_smiles', 'func_chem', 'con_ring_name']:
         info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) if len(gt) > 0 else gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
+    elif mode == 'weight':
+        info_correct_list = [(round(float(pred),2) < round(1.1*float(gt),2)) and ((round(float(pred),2) > round(0.9*float(gt),2))) for gt, pred in zip(gt_info_list, pred_info_list)]
     else:
         info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
@@ -277,6 +300,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', base_
     for i, mode in enumerate(cot_modes):
         is_only_count = False
         is_func = False
+        is_weight = False
         print(f'Analysis for {mode}')
         predicted_cot_list = [cot.replace('..', '.') for cot in predicted_cot_list]
         cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
@@ -289,16 +313,15 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', base_
                         'chain': map_chain_from_cot, 'fragment': map_fragment_cot, 'ring': map_ring_size_from_cot, 'multiset_simple': map_multiset_from_cot, \
                         'multiset_full': map_multiset_from_cot, 'multiset_formula': map_form_from_cot, 'multiset_type': map_type_from_cot, \
                         'aromatic': map_arom_num_from_cot, 'ring_name': map_ring_name_from_cot, 'con_ring_name': map_ring_name_from_cot, \
-                        'iupac': map_iupac_from_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_from_cot}
+                        'iupac': map_iupac_from_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_from_cot, 
+                        'weight': map_weight_from_cot, 'name': map_name_from_cot, 'func_chem': map_functional_group_from_cot}
         
         gt_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_gt_cot_list]
         pred_info_list = [cot_function_dict.get(mode)(gt) for _, gt in enumerate(cur_predicted_cot_list)]
-        if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral']:
+        if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral', 'weight', 'name', 'func_chem']:
             is_only_count = True
-        if 'func' in mode:
-            is_func = True
         
-        acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count, is_func)
+        acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count, mode)
         result.append(acc_list)
     return result
         
