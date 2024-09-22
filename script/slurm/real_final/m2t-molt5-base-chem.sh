@@ -2,8 +2,8 @@
 
 #SBATCH -J m2t-molt5-base-chem
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p 3090
-#SBATCH --gres=gpu:6
+#SBATCH -p RTX6000ADA
+#SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
@@ -32,7 +32,8 @@ srun python model/one_stage_generator_mol2text.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---check_val_every_n_epoch 20
+--check_val_every_n_epoch 20 \
+--run_id sgbl5ult
 
 
 
