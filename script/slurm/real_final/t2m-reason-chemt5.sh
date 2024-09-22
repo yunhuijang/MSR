@@ -2,8 +2,8 @@
 
 #SBATCH -J t2m-reason-chemt5
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p 3090
-#SBATCH --gres=gpu:6
+#SBATCH -p RTX6000ADA
+#SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
