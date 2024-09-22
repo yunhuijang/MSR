@@ -123,7 +123,7 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
 
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1) or (state.epoch == self.hparams.epochs):
             print("Start Answer Evaluation")
             # generate predictions
             # generation_index = range(len(self.test_dataset))

@@ -5,7 +5,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 import argparse
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+# os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 import pandas as pd
@@ -72,7 +72,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
                                                                                         'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'
                                                                                         ])
 # multiset_formula-func_simple-chain-aromatic-con_ring_name
-        parser.add_argument("--cot_mode", type=str, default='', 
+        parser.add_argument("--cot_mode", type=str, default='name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -154,7 +154,7 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
     
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1) or (state.epoch == self.hparams.epochs):
             print("Start evaluation")
             # # generate predictions
             # inputs = self.test_dataset

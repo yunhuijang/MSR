@@ -6,7 +6,7 @@ import wandb
 from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
-os.environ['CUDA_VISIBLE_DEVICES']='0'
+# os.environ['CUDA_VISIBLE_DEVICES']='1'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from accelerate import Accelerator
 from tqdm import tqdm
@@ -82,7 +82,7 @@ class WandbReasoningProgressCallback(WandbPredictionProgressCallback):
     
     
     def on_evaluate(self, args, state, control, **kwargs):
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1) or (state.epoch == self.hparams.epochs):
             print("Start Reasoning Evaluation")
             # generate predictions
             
