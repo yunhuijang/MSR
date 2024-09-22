@@ -36,4 +36,5 @@ srun python model/one_stage_generator_mol2text.py \
 --lr_scheduler_type linear \
 --max_length 820 \
 --generation_mode \
---max_new_tokens 512
+--max_new_tokens 512 \
+--run_id auwqbxeb

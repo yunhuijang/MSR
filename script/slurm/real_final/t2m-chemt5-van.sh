@@ -36,7 +36,8 @@ srun python model/one_stage_generator.py \
 --weight_decay 0 \
 --learning_rate 6e-4 \
 --warmup_ratio 0 \
---lr_scheduler_type linear
+--lr_scheduler_type linear \
+--run_id i9lnlnal
 
 
 
