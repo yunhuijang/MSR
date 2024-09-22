@@ -2,9 +2,8 @@
 
 #SBATCH -J t2m-reason-molt5-base
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
-#SBATCH -q hpgpu
-#SBATCH --gres=gpu:4
+#SBATCH -p 3090
+#SBATCH --gres=gpu:6
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
@@ -26,8 +25,8 @@ srun python model/reasoning_generator.py \
 --architecture molt5-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 4 \
+--eval_batch_size 4 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \

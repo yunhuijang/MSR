@@ -2,9 +2,9 @@
 
 #SBATCH -J m2t-chemt5-van
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
+#SBATCH -p 3090
 #SBATCH -q add_hpgpu
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:6
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR
@@ -25,8 +25,8 @@ nvidia-smi
 srun python model/one_stage_generator_mol2text.py \
 --architecture multitask-text-and-chemistry-t5-base-standarddarddarddarddard \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 4 \
+--eval_batch_size 4 \
 --epochs 250 \
 --model_id GT4SD \
 --weight_decay 0 \

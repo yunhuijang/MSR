@@ -2,9 +2,8 @@
 
 #SBATCH -J m2t-molt5-base-chem
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
-#SBATCH -q hpgpu
-#SBATCH --gres=gpu:4
+#SBATCH -p 3090
+#SBATCH --gres=gpu:6
 #SBATCH -o sbatch_log/%x.out
 
 cd $SLURM_SUBMIT_DIR

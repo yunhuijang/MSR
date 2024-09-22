@@ -2,8 +2,7 @@
 
 #SBATCH -J m2t-molt5-base
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
-#SBATCH -q hpgpu
+#SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -33,7 +32,8 @@ srun python model/one_stage_generator_mol2text.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---check_val_every_n_epoch 5
+--check_val_every_n_epoch 5 \
+--run_id kpwwh7ws
 
 
 
