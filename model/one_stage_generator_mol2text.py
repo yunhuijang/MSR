@@ -154,7 +154,7 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
     
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1) or (state.epoch == self.hparams.epochs):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == self.hparams.epochs):
             print("Start evaluation")
             # # generate predictions
             # inputs = self.test_dataset

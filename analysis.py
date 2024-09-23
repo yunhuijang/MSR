@@ -235,7 +235,7 @@ def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, mod
     if mode in ['func_simple', 'func_smiles', 'func_chem', 'con_ring_name']:
         info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) if len(gt) > 0 else gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     elif mode == 'weight':
-        info_correct_list = [(round(float(pred),2) < round(1.1*float(gt),2)) and ((round(float(pred),2) > round(0.9*float(gt),2))) for gt, pred in zip(gt_info_list, pred_info_list)]
+        info_correct_list = [(round(float(pred),2) < round(1.05*float(gt),2)) and ((round(float(pred),2) > round(0.95*float(gt),2))) for gt, pred in zip(gt_info_list, pred_info_list)]
     else:
         info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")

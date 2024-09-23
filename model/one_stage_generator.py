@@ -244,7 +244,7 @@ class WandbPredictionProgressCallback(WandbCallback):
     
     def on_evaluate(self, args, state, control, **kwargs):
         super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == self.hparams.epochs):
             print("Start evaluation")
             # generate predictions
             run_name = map_cot_mode(self.hparams)

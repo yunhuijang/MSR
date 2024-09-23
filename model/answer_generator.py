@@ -53,10 +53,18 @@ class FineTuneAnswer(FineTuneTranslator):
             if self.hparams.is_true:
                 file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
             else:
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}-{self.run_name}.txt'
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
-            data_dict['cot'] = cot_list[:len(gt_smiles_list)]
+            cot_list_final = cot_list
+            cot_mode_split = hparams.cot_mode.split('-')
+            cot_mode_select_split = hparams.select_cot_mode.split('-')
+            if len(cot_mode_split) != len(cot_mode_select_split):
+                cot_indices = [cot_mode_split.index(cot_select) for cot_select in cot_mode_select_split]
+                cot_list_list = [[cot.split('.')[i] for i in cot_indices] for cot in cot_list]
+                cot_list_final = ['.'.join(cot)+'.' for cot in cot_list_list]
+            
+            data_dict['cot'] = cot_list_final[:len(gt_smiles_list)]
 
         dataset = Dataset.from_dict(data_dict)
         
@@ -83,15 +91,16 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-base-text2mol', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
                                                                                         'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'])
-        parser.add_argument("--cot_mode", type=str, default='', 
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
+        parser.add_argument("--select_cot_mode", type=str, default='chain-aromatic-con_ring_name-func_simple-chiral')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=1e-3)
         parser.add_argument("--train_batch_size", type=int, default=3)
@@ -103,7 +112,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='QizhiPei', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
@@ -123,7 +132,7 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
 
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == 1) or (state.epoch == self.hparams.epochs):
+        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == self.hparams.epochs):
             print("Start Answer Evaluation")
             # generate predictions
             # generation_index = range(len(self.test_dataset))

@@ -23,7 +23,7 @@ nvidia-smi
 
 srun python model/answer_generator.py \
 --architecture molt5-base \
---cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
