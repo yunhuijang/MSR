@@ -1,9 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J m2t-chemt5
+#SBATCH -J m2t-chemt5-new
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
-#SBATCH -q hpgpu
+#SBATCH -p RTX6000ADA
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -37,4 +36,5 @@ srun python model/one_stage_generator_mol2text.py \
 --lr_scheduler_type linear \
 --max_length 820 \
 --generation_mode \
---max_new_tokens 512
+--max_new_tokens 512 \
+--run_id yqcx2oh8
