@@ -1,8 +1,8 @@
 #!/bin/sh
 
-#SBATCH -J t2m-answer-molt5-base
+#SBATCH -J t2m-answer-molt5-small
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p RTX6000ADA
+#SBATCH -p 3090
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -22,7 +22,7 @@ date
 nvidia-smi
 
 srun python model/answer_generator.py \
---architecture molt5-base \
+--architecture molt5-small \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --select_cot_mode chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
@@ -33,11 +33,12 @@ srun python model/answer_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
+--check_val_every_n_epoch 40 \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
---lr_scheduler_type cosine \
---check_val_every_n_epoch 20
+--lr_scheduler_type cosine
+
 
 
 

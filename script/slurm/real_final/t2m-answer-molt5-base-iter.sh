@@ -24,6 +24,7 @@ nvidia-smi
 srun python model/answer_generator.py \
 --architecture molt5-base \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
+--select_cot_mode chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
@@ -32,10 +33,10 @@ srun python model/answer_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---weight_decay 0.01 \
---learning_rate 0.00002 \
---warmup_ratio 0 \
---lr_scheduler_type linear \
+--weight_decay 0 \
+--learning_rate 1e-3 \
+--warmup_ratio 0.1 \
+--lr_scheduler_type cosine \
 --check_val_every_n_epoch 20 \
 --is_iterative
 
