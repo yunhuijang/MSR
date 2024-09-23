@@ -112,7 +112,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
