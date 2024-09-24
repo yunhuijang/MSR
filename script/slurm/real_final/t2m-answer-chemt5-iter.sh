@@ -29,7 +29,7 @@ srun python model/answer_generator.py \
 --train_batch_size 8 \
 --eval_batch_size 8 \
 --epochs 250 \
---model_id laituan245 \
+--model_id GT4SD \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
@@ -37,7 +37,8 @@ srun python model/answer_generator.py \
 --weight_decay 0 \
 --learning_rate 6e-4 \
 --warmup_ratio 0 \
---lr_scheduler_type linear
+--lr_scheduler_type linear \
+--is_iterative
 
 
 
