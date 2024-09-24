@@ -50,10 +50,13 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
-            if self.hparams.is_true:
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
+            if len(hparams.select_cot_mode) > 0:
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.hparams.cot_mode}.txt'
             else:
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+                if self.hparams.is_true:
+                    file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
+                else:
+                    file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             cot_list_final = cot_list
@@ -61,7 +64,7 @@ class FineTuneAnswer(FineTuneTranslator):
             cot_mode_select_split = hparams.select_cot_mode.split('-')
             if len(cot_mode_split) != len(cot_mode_select_split):
                 cot_indices = [cot_mode_split.index(cot_select) for cot_select in cot_mode_select_split]
-                cot_list_list = [[cot.split('.')[i] for i in cot_indices] for cot in cot_list]
+                cot_list_list = [[cot.split('.')[i] for i in cot_indices if i < len(cot.split('.'))] for cot in cot_list]
                 cot_list_final = ['.'.join(cot)+'.' for cot in cot_list_list]
             
             data_dict['cot'] = cot_list_final[:len(gt_smiles_list)]
@@ -91,7 +94,7 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
