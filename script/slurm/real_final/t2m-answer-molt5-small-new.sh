@@ -26,8 +26,8 @@ srun python model/answer_generator.py \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --select_cot_mode chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 32 \
+--eval_batch_size 32 \
 --epochs 250 \
 --model_id laituan245 \
 --max_length 820 \
