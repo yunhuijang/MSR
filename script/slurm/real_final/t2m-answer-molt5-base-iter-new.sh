@@ -38,7 +38,8 @@ srun python model/answer_generator.py \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \
 --check_val_every_n_epoch 20 \
---is_iterative
+--is_iterative \
+--ir_true
 
 
 

@@ -53,10 +53,10 @@ class FineTuneAnswer(FineTuneTranslator):
             if len(hparams.select_cot_mode) > 0:
                 file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.hparams.cot_mode}.txt'
             else:
-                if self.hparams.is_true:
-                    file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
-                else:
-                    file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+                # if self.hparams.is_true:
+                #     file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
+                # else:
+                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             cot_list_final = cot_list
@@ -94,7 +94,7 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='multitask-text-and-chemistry-t5-small-standard', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
@@ -115,7 +115,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='GT4SD', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
