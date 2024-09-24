@@ -694,6 +694,8 @@ def map_name_cot(smiles_list):
 
 def smiles2weight(smi):
     mol = Chem.MolFromSmiles(smi)
+    if mol is None:
+        return 0
     return rdMolDescriptors.CalcExactMolWt(mol)
 
 def map_weight_cot(smiles_list):
