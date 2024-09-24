@@ -577,11 +577,17 @@ def map_cot_mode(hparams):
     '''
     Map CoT mode to string
     '''
-    try:
-        cot_mode = hparams.cot_mode
-    except:
-        cot_mode = hparams['cot_mode']
-    
+    if len(hparams.select_cot_mode) > 0:
+        try:
+            cot_mode = hparams.select_cot_mode
+        except:
+            cot_mode = hparams['select_cot_mode']
+    else:
+        try:
+            cot_mode = hparams.cot_mode
+        except:
+            cot_mode = hparams['cot_mode']
+
     return cot_mode
 
 def add_cot_to_target(examples, targets, cot_mode):
