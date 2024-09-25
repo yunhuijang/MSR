@@ -56,7 +56,7 @@ class FineTuneAnswer(FineTuneTranslator):
                 #     file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
                 # else:
                 file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
-            cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:][:10]
+            cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             cot_list_final = cot_list
             cot_mode_split = hparams.cot_mode.split('-')
