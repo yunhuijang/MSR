@@ -14,9 +14,8 @@ import json
 from accelerate import Accelerator
 
 from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgressCallback
-from util_cot import map_cot_mode
 from evaluation import fingerprint_metrics, mol_translation_metrics, fcd_metric
-from util_cot import map_cot_mode, map_cot_to_smiles_list
+from util_cot import map_cot_mode, map_cot_to_smiles_list, add_cot_to_text
 from util import selfies_to_smiles
 from tqdm import tqdm
 
@@ -50,22 +49,25 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
-            if len(hparams.select_cot_mode) > 0:
+            if hasattr(hparams, "select_cot_mode"):
                 file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.hparams.cot_mode}.txt'
             else:
                 # if self.hparams.is_true:
                 #     file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
                 # else:
                 file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
-            cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
+            cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:][:10]
             cot_list = [" "+cot for cot in cot_list]
             cot_list_final = cot_list
             cot_mode_split = hparams.cot_mode.split('-')
             cot_mode_select_split = hparams.select_cot_mode.split('-')
             if len(cot_mode_split) != len(cot_mode_select_split):
-                cot_indices = [cot_mode_split.index(cot_select) for cot_select in cot_mode_select_split]
-                cot_list_list = [[cot.split('.')[i] for i in cot_indices if i < len(cot.split('.'))] for cot in cot_list]
-                cot_list_final = ['.'.join(cot)+'.' for cot in cot_list_list]
+                if hparams.select_cot_mode == '':
+                    cot_list_final = ["" for _ in gt_smiles_list]
+                else:
+                    cot_indices = [cot_mode_split.index(cot_select) for cot_select in cot_mode_select_split]
+                    cot_list_list = [[cot.split('.')[i] for i in cot_indices if i < len(cot.split('.'))] for cot in cot_list]
+                    cot_list_final = ['.'.join(cot)+'.' for cot in cot_list_list]
             
             data_dict['cot'] = cot_list_final[:len(gt_smiles_list)]
 
@@ -94,7 +96,7 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='multitask-text-and-chemistry-t5-small-standard', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
@@ -115,7 +117,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='GT4SD', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
@@ -193,7 +195,16 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                     "FCD Metric": round(fcd_metric_score, 3), "Validity": round(validity_score, 3)
                     }
             self._wandb.log(result)
-            
+    
+    def tokenize_dataset(self, examples):
+        description_list = examples["description"]
+        cot_list = examples['cot']
+        inputs = [desc + cot for desc, cot in zip(description_list, cot_list)]
+
+        model_inputs = self.tokenizer(inputs, max_length=self.hparams.max_length, truncation=True)
+        return model_inputs
+    
+    
     def generaate_samples(self, dataset, generation_mode=False, num_iter=1):
         if generation_mode:
             decoded_preds = []
