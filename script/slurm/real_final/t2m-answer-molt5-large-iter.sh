@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-answer-molt5-large
+#SBATCH -J t2m-answer-molt5-large-iter
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH -q add_hpgpu
@@ -35,10 +35,10 @@ srun python model/answer_generator.py \
 --generation_mode \
 --max_new_tokens 512 \
 --check_val_every_n_epoch 40 \
---weight_decay 0 \
---learning_rate 1e-3 \
---warmup_ratio 0.1 \
---lr_scheduler_type cosine \
+--weight_decay 0.01 \
+--learning_rate 0.00002 \
+--warmup_ratio 0 \
+--lr_scheduler_type linear \
 --is_iterative
 
 
