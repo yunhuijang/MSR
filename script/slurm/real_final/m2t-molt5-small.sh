@@ -27,13 +27,12 @@ srun python model/one_stage_generator_mol2text.py \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
---epochs 250 \
+--epochs 500 \
 --model_id laituan245 \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
 --check_val_every_n_epoch 40
-
 
 
 
