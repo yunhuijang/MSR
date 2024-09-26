@@ -36,7 +36,8 @@ srun python model/one_stage_generator_mol2text.py \
 --weight_decay 0 \
 --learning_rate 1e-3 \
 --warmup_ratio 0.1 \
---lr_scheduler_type cosine
+--lr_scheduler_type cosine \
+--force
 
 
 
