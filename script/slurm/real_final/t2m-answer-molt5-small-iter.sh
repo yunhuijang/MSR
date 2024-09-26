@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-answer-molt5-small
+#SBATCH -J t2m-answer-molt5-small-iter
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p 3090
 #SBATCH --gres=gpu:4
