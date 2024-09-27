@@ -30,11 +30,10 @@ srun python model/one_stage_generator_mol2text.py \
 --epochs 250 \
 --model_id GT4SD \
 --weight_decay 0 \
---learning_rate 6e-4 \
+--learning_rate 1e-3 \
 --warmup_ratio 0.1 \
 --check_val_every_n_epoch 20 \
 --lr_scheduler_type linear \
 --max_length 820 \
 --generation_mode \
---max_new_tokens 512 \
---run_id o47y7fdh
+--max_new_tokens 512
