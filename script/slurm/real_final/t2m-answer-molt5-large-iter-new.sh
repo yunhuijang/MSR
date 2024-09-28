@@ -40,7 +40,8 @@ srun python model/answer_generator.py \
 --warmup_ratio 0.1 \
 --lr_scheduler_type cosine \
 --is_iterative \
---is_true
+--is_true \
+--run_id 07hir6sz
 
 
 
