@@ -164,7 +164,7 @@ if __name__ == "__main__":
         model.to(device='cpu')
     print(model.device)
     run_name = map_cot_mode(hparams)
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     if hparams.architecture.split('-') == 'multitask':
         arch = f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}'

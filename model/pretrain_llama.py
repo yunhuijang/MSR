@@ -168,7 +168,7 @@ if __name__ == "__main__":
     print(model.device)
 
     # for hugging face login
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
 
     if hparams.run_id == '':

@@ -147,7 +147,7 @@ if __name__ == "__main__":
         model.to(device='cpu')
     print(model.device)
     run_name = map_cot_mode(hparams)
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     if hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-reasoning', mode=hparams.wandb_mode,

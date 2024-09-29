@@ -110,7 +110,7 @@ if __name__ == "__main__":
     run_name = map_cot_mode(hparams)
         
     # for hugging face login
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     if hparams.run_id == '':
         wandb.init(project='mol2text', name=f'{hparams.architecture}{run_name}-ft-answer', mode=hparams.wandb_mode,

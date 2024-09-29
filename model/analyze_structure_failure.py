@@ -20,7 +20,7 @@ from analysis import *
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-openai_key = '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'
+openai_key = ''
 os.environ['OPENAI_API_KEY'] = openai_key   
 
 
@@ -58,8 +58,8 @@ def analyze_structure_failure(hparams):
     
     for index, smiles in enumerate(tqdm(gt_smiles_list_test)):
 
-        head_prompt =  f"You are now working as an excellent expert in chemisrty and drug discovery. \
-                Given the SMILES representation of a molecule and structural description of the molecule, your job is to predict the structural information of the molecule. \
+        head_prompt =  f"You are now working as an excellent expert in chemistry and drug discovery. \
+                Given the SMILES representation of a molecule and the structural description of the molecule, your job is to predict the structural information of the molecule. \
                 The structural information of the molecule caption includes the molecular formula, ALL the functional groups, the length of the longest carbon chain except for ring, the number of aromatic rings, and the IUPAC names of ALL the rings in the molecule. \
                 The functional group and ring IUPAC name should be in the list. \
                 Note that the functional groups should be in the candidates: {functional_group_str}\n" \
@@ -296,7 +296,7 @@ def evaluate_failure(file_name, gt_smiles_list_test, final_results):
 
 if __name__ == "__main__":
     # for hugging face login
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     parser = argparse.ArgumentParser()
     add_args(parser)

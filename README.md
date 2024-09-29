@@ -1,11 +1,20 @@
 # MolStructCoT: Structure-aware CoT for molecules
 
+Our code is based on https://github.com/blender-nlp/MolT5.
+Copyright (c) 2023, blender-nlp
+
 ### Checkpoints
-+ [MolT5-base] output/
-+ 
+We provide a few checkpoints due to the storage limit of anonymous github.
+
++ [MolT5-base-m2t] output/molt5-base-m2t
++ [ChemT5-base-t2m-reason] output/chemt5-base-t2m-reason
++ [ChemT5-base-t2m-answer] output/chemt5-base-t2m-answer
 
 ### Finetuning 
-You can use the script in real_final/ for fine-tuning with our MolStructCoT.
+You can use the script in script/ for fine-tuning with our MolStructCoT.
+For generalists, you can use the scripts in script/generalist/ and for specailists, you can use the scripts in scrip/specialist.
+The cot_mode option determines the structural information included in MolStructCoT.
+Note that you need to use your openai and huggingface key.
 
 
 ### Datasets

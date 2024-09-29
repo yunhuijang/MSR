@@ -110,7 +110,7 @@ def generalist(hparams):
             
             cot_components = map_cot_components(cot_mode)
             
-            head_prompt = f"You are now working as an excellent expert in chemisrty and drug discovery. \
+            head_prompt = f"You are now working as an excellent expert in chemistry and drug discovery. \
                 Given the caption of a molecule, your job is to predict the SMILES representation of the molecule. \
                 The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production. \
                 You can infer the molecule SMILES representation from the caption. \
@@ -140,7 +140,7 @@ def generalist(hparams):
             input_prompt = f"Input: {description}"
             
         elif task == 'mol2text':
-            head_prompt = "You are now working as an excellent expert in chemisrty and drug discovery. \
+            head_prompt = "You are now working as an excellent expert in chemistry and drug discovery. \
                 Given the SMILES representation of a molecule and structural description of the molecule, your job is to predict the caption of the molecule. \
                 The molecule caption is a sentence that describes the molecule, which mainly describes the molecule's structures, properties, and production.\n" \
                 + "\n"
@@ -316,7 +316,7 @@ def add_args(parser):
 
 if __name__ == "__main__":
     # for hugging face login
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     parser = argparse.ArgumentParser()
     add_args(parser)

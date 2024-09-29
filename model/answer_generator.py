@@ -263,7 +263,7 @@ if __name__ == "__main__":
     run_name = map_cot_mode(hparams)
         
     # for hugging face login
-    HfFolder.save_token('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')
+    HfFolder.save_token('')
     
     if hparams.architecture.split('-') == 'multitask':
         arch = f'chemt5-{"-".join(hparams.architecture.split("-")[-2:])}'
