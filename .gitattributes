@@ -4,3 +4,6 @@ output/ filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-m2t.zip filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-t2m-answer.zip filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-t2m-reason.zip filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-reason filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-answer filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-m2t filter=lfs diff=lfs merge=lfs -text
