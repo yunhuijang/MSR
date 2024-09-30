@@ -7,3 +7,10 @@ output/chemt5-small-t2m-reason.zip filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-t2m-reason filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-t2m-answer filter=lfs diff=lfs merge=lfs -text
 output/chemt5-small-m2t filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-answer/optimizer.pt filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-answer/model.safetensors filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-answer/trainer_state.json filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-reason/trainer_state.json filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-t2m-reason/model.safetensors filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-m2t/model.safetensors filter=lfs diff=lfs merge=lfs -text
+output/chemt5-small-m2t/trainer_state.json filter=lfs diff=lfs merge=lfs -text
