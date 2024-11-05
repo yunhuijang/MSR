@@ -1,0 +1,22 @@
+python model/one_stage_generator.py \
+--architecture molt5-large \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
+--select_cot_mode chain-aromatic-con_ring_name-func_simple-chiral \
+--wandb_mode online \
+--train_batch_size 4 \
+--eval_batch_size 4 \
+--epochs 250 \
+--model_id GT4SD \
+--max_length 820 \
+--generation_mode \
+--max_new_tokens 512 \
+--check_val_every_n_epoch 20 \
+--weight_decay 0 \
+--learning_rate 6e-4 \
+--warmup_ratio 0 \
+--lr_scheduler_type linear \
+--is_iterative
+
+
+
+
