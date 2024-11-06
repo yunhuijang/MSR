@@ -113,6 +113,7 @@ class FineTuneTranslator(pl.LightningModule):
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
+        parser.add_argument("--select_cot_mode", type=str, default='chain-aromatic-con_ring_name-func_simple-chiral')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--train_batch_size", type=int, default=3)
@@ -129,6 +130,8 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
+        parser.add_argument('--is_iterative', action='store_true')
+
 
         return parser
 
