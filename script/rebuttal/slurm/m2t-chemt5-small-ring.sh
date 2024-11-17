@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-chemt5-small-mr
+#SBATCH -J t2m-chemt5-small-ring
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A6000
 #SBATCH --gres=gpu:4
@@ -26,8 +26,8 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture multitask-text-and-chemistry-t5-small-standard \
 --cot_mode con_ring_name \
 --wandb_mode online \
---train_batch_size 8 \
---eval_batch_size 8 \
+--train_batch_size 32 \
+--eval_batch_size 32 \
 --epochs 250 \
 --model_id GT4SD \
 --weight_decay 0 \
