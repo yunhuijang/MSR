@@ -230,12 +230,56 @@ def map_name_from_cot(cot):
             logging.warning(f"Error in mapping name from CoT: {cot}")
             return ''
 
+def map_homolumo_from_cot(cot):
+    if cot.strip() == 'The HOMO LUMO values are unavailable.' or 'HOMO' not in cot:
+        return (100, 100)
+    else:
+        homo_lumo = re.findall(r"[-+]?(?:\d*\.*\d+)", cot)
+        return round(float(homo_lumo[0]),2), round(float(homo_lumo[1]),2)
+
+def map_fingerprint_from_cot(cot):
+    return cot.split(' ')[-1][:-1]
+
+def map_3d_from_cot(cot):
+    cot = cot.strip()
+    cot = cot[len('The conformer of the molecule is '):-1]
+    cot_split = cot.split('\n')
+    atom_types = [elem.split(' ')[0] for elem in cot_split]
+    coordinates = [elem.split(' ')[1:] for elem in cot_split]
+    coordinates = [[float(c) for c in coord if len(c)>0] for coord in coordinates]
+    return atom_types, coordinates
+
+
+def map_mr_from_cot(cot):
+    if 'not available' in cot.strip():
+        return 0
+    else:
+        mr = re.findall(r"[-+]?(?:\d*\.*\d+)", cot)[0]
+        return round(mr,3)
+    
+def map_tpsa_from_cot(cot):
+    if 'not available' in cot.strip():
+        return 0
+    else:
+        mr = re.findall(r"[-+]?(?:\d*\.*\d+)", cot)[0]
+        return round(mr,2)
+
+
+# Need change: add function
+
 def generate_correct_list(gt_info_list, pred_info_list, is_only_count=False, mode='ring'):
-    # whole information of rings
+    
+    # Need change
     if mode in ['func_simple', 'func_smiles', 'func_chem', 'con_ring_name']:
         info_correct_list = [len(set(gt).intersection(set(pred)))/len(gt) if len(gt) > 0 else gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
-    elif mode == 'weight':
-        info_correct_list = [(round(float(pred),2) < round(1.05*float(gt),2)) and ((round(float(pred),2) > round(0.95*float(gt),2))) for gt, pred in zip(gt_info_list, pred_info_list)]
+    elif mode in ['weight', 'tpsa', 'mr']:
+        info_correct_list = [round(0.95*float(gt),2) < (round(float(pred),2) < round(1.05*float(gt),2)) for gt, pred in zip(gt_info_list, pred_info_list)]
+    elif mode == 'homo_lumo':
+        info_correct_list = [(round(0.95*float(gt[0]),2) < round(float(pred[0]),2) < round(1.05*float(gt[0]),2)) \
+                            and (round(0.95*float(gt[0]),2) < round(float(pred[0]),2) < round(1.05*float(gt[0]),2)) \
+                            for gt, pred in zip(gt_info_list, pred_info_list)]
+    elif mode == '3d':
+        pass
     else:
         info_correct_list = [gt == pred for gt, pred in zip(gt_info_list, pred_info_list)]
     print(f"Accuracy: {sum(info_correct_list)/len(gt_info_list)}")
@@ -303,22 +347,25 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', base_
         is_weight = False
         print(f'Analysis for {mode}')
         predicted_cot_list = [cot.replace('..', '.') for cot in predicted_cot_list]
-        cur_predicted_cot_list = [pred.split('.')[i]+'.' if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
+        cur_predicted_cot_list = [pred.split('\t')[i] if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
         if base_arch == 'biot5':
             cur_predicted_cot_list = [post_process_cot(pred, mode) for _, pred in enumerate(cur_predicted_cot_list)]
         
-        cur_gt_cot_list = [gt.split('.')[i]+'.' for gt in gt_cot_list]
-        
+        cur_gt_cot_list = [gt.split('\t')[i] for gt in gt_cot_list]
+        # Need change
         cot_function_dict = {'func_simple': map_functional_group_from_cot, 'func_smiles': map_functional_group_from_cot, 'scaffold': map_scaffold_from_cot, \
                         'chain': map_chain_from_cot, 'fragment': map_fragment_cot, 'ring': map_ring_size_from_cot, 'multiset_simple': map_multiset_from_cot, \
                         'multiset_full': map_multiset_from_cot, 'multiset_formula': map_form_from_cot, 'multiset_type': map_type_from_cot, \
                         'aromatic': map_arom_num_from_cot, 'ring_name': map_ring_name_from_cot, 'con_ring_name': map_ring_name_from_cot, \
                         'iupac': map_iupac_from_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_from_cot, 
-                        'weight': map_weight_from_cot, 'name': map_name_from_cot, 'func_chem': map_functional_group_from_cot}
+                        'weight': map_weight_from_cot, 'name': map_name_from_cot, 'func_chem': map_functional_group_from_cot,
+                        'homo_lumo': map_homolumo_from_cot, '3d': map_3d_from_cot, 'fingerprint': map_fingerprint_from_cot,
+                        'tpsa': map_tpsa_from_cot, 'mr': map_mr_from_cot}
         
         gt_info_list = [cot_function_dict.get(mode)(gt) for gt in cur_gt_cot_list]
         pred_info_list = [cot_function_dict.get(mode)(gt) for _, gt in enumerate(cur_predicted_cot_list)]
-        if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral', 'weight', 'name', 'func_chem']:
+        if mode in ['multiset_type', 'aromatic', 'chain', 'iupac', 'scaffold', 'func_simple', 'func_smiles', 'chiral', 'weight', 
+                    'name', 'func_chem', '3d', 'homo_lumo', 'fingerprint']:
             is_only_count = True
         
         acc_list = generate_correct_list(gt_info_list, pred_info_list, is_only_count, mode)

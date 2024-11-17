@@ -19,15 +19,25 @@ from rdkit.Chem.Scaffolds.MurckoScaffold import MurckoScaffoldSmilesFromSmiles
 from thermo import functional_groups
 from inspect import getmembers, isfunction
 from rdkit.Chem.rdchem import EditableMol
-from rdkit.Chem import FindMolChiralCenters
-from rdkit.Chem import rdMolDescriptors
+from rdkit.Chem import FindMolChiralCenters, rdMolDescriptors, rdDepictor, rdDistGeom
 import requests
+import numpy as np
+from pyscf import gto, scf, lo, tools
+from rdkit.Chem.rdmolfiles import MolToXYZBlock
+from scipy.constants import physical_constants
+HARTREE_TO_EV_FACTOR = dict(physical_constants)['Hartree energy in eV'][0]
+from rdkit.Chem import AllChem
+
 
 from tokens import NODE_TOKENS, BOND_TOKENS, tokenize, id_to_token
 
+np.set_printoptions(suppress=True)
+
+# Need change
 TOTAL_COT_MODES = ['func_simple', 'func_smiles', 'scaffold', 'chain', 'fragment', 'ring', 'multiset_simple', \
             'multiset_full', 'multiset_formula', 'multiset_type', 'aromatic', 'ring_name',  \
-            'con_ring_name', 'iupac', 'double_bond', 'chiral', 'weight', 'name', 'func_chem']
+            'con_ring_name', 'iupac', 'double_bond', 'chiral', 'weight', 'name', 'func_chem', \
+            'homo_lumo', 'fingerprint', '3d', 'mr', 'tpsa']
 
 
 def flatten(xss):
@@ -557,6 +567,28 @@ def map_connected_ring_name_cot(smiles_list):
         
     return ring_cot
 
+from rdkit.Chem.rdMolDescriptors import CalcTPSA
+from rdkit.Chem import Descriptors 
+
+# Need change: add function
+
+def map_tpsa_cot(smiles_list):
+    smiles_list = [canonicalize(smiles) for smiles in smiles_list]
+    mols = [Chem.MolFromSmiles(target) if target is not None else None for target in smiles_list]
+    tpsa_list = [round(Descriptors.TPSA(mol),3) if mol is not None else None for mol in mols]
+    cot_list = [f" The TPSA value of the molecule is {tpsa}." if tpsa is not None else " The TPSA value of the molecule is not available." for tpsa in tpsa_list]
+    
+    
+    return cot_list
+
+def map_mr_cot(smiles_list):
+    smiles_list = [canonicalize(smiles) for smiles in smiles_list]
+    mols = [Chem.MolFromSmiles(target) if target is not None else None for target in smiles_list]
+    mr_list = [round(Descriptors.MolMR(mol),2) if mol is not None else None for mol in mols]
+    cot_list = [f" The molar refractivity of the molecule is {mr}." if mr is not None else " The molar refractivity of the molecule is not available."  for mr in mr_list]
+    
+    return cot_list
+
 def canonicalize(smiles, is_kekulize=False):
     try:
         mol = Chem.MolFromSmiles(smiles)
@@ -582,11 +614,6 @@ def map_cot_mode(hparams):
             cot_mode = hparams.select_cot_mode
         except:
             cot_mode = hparams['select_cot_mode']
-    # if len(hparams.select_cot_mode) > 0:
-    #     try:
-    #         cot_mode = hparams.select_cot_mode
-    #     except:
-    #         cot_mode = hparams['select_cot_mode']
     else:
         try:
             cot_mode = hparams.cot_mode
@@ -604,8 +631,8 @@ def add_cot_to_target(examples, targets, cot_mode):
         if cm not in TOTAL_COT_MODES:
             raise ValueError(f"Invalid CoT mode: {cm}")
 
-        targets = [f"{cot}{target}" for target, cot in zip(targets, examples[f'cot_{cm}'])]
-
+        targets = [f"{cot}\t{target}" for target, cot in zip(targets, examples[f'cot_{cm}'])]
+    targets = [target[:-1] for target in targets]
     
     return targets
 
@@ -629,13 +656,15 @@ def map_cot_to_smiles_list(smiles_list, hparams, data_dict, split):
         if cm not in TOTAL_COT_MODES:
 
             raise ValueError(f"Invalid CoT mode: {cm}")
-
+        # Need change
         cot_function_dict = {'func_simple': map_functional_group_cot, 'func_smiles': map_functional_group_cot, 'scaffold': map_scaffold_cot, \
                             'chain': map_carbon_chain_length, 'fragment': map_fragment_cot, 'ring': map_ring_cot, 'multiset_simple': map_multiset_cot, \
                             'multiset_full': map_multiset_cot, 'multiset_formula': map_multiset_cot, 'multiset_type': map_multiset_cot, \
                             'aromatic': map_aromatic_ring_cot, 'ring_name': map_ring_name_cot, 'con_ring_name': map_connected_ring_name_cot, \
                             'iupac': map_iupac_cot, 'double_bond': map_num_double_bond, 'chiral': map_chiral_center_cot,
-                            'weight': map_weight_cot, 'name': map_name_cot, 'func_chem': map_chem_functional_group_cot
+                            'weight': map_weight_cot, 'name': map_name_cot, 'func_chem': map_chem_functional_group_cot,
+                            'fingerprint': map_fingerprint_cot, '3d': map_3d_cot, 'homo_lumo': map_homolumo_cot, 
+                            'tpsa': map_tpsa_cot, 'mr': map_mr_cot
                             }
         cot_function = cot_function_dict.get(cm)
         if ('multiset' in cm) or ('func' in cm):
@@ -769,7 +798,73 @@ def map_chem_functional_group_cot(smiles_list, mode=None):
             fg_cot.append("This molecule does not contain any functional group.")
     return fg_cot
 
+def map_fingerprint_cot(smiles_list, nBits=32, radius=2):
+    mols = [Chem.MolFromSmiles(smi) for smi in smiles_list]
+    fp_list = [rdMolDescriptors.GetMorganFingerprintAsBitVect(mol, radius=radius, nBits=nBits) for mol in mols]
+    fp_list = [fp.ToBitString() for fp in fp_list]
+    fp_cot = [f" The Morgan fingerprint of the molecule calculated with a radius {radius} and using {nBits} bits is {fp}." for fp in fp_list]
+    return fp_cot
+
+def find_homo_lumo(mf):
+    lumo = float("inf")
+    homo = -float("inf")
+    if mf == "":
+        return None, None
+    for _, (energy, occ) in enumerate(zip(mf.mo_energy, mf.mo_occ)):
+        if occ > 0 and energy > homo:
+            homo = energy
+        if occ == 0 and energy < lumo:
+            lumo = energy
+
+    return round(homo*HARTREE_TO_EV_FACTOR,2), round(lumo*HARTREE_TO_EV_FACTOR,2)
+
+def get_gto(xyz, basis='sto-3g'):
+    try:
+        return gto.M(atom=xyz, basis=basis)
+    except:
+        return None
     
+
+def map_homolumo_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(smi) for smi in smiles_list]
+    mols = [Chem.AddHs(mol) for mol in mols]
+    for mol in mols:
+        AllChem.EmbedMolecule(mol)
+    xyzs = [MolToXYZBlock(mol).split('\n\n')[1] for mol in mols]
+    
+    mols = [get_gto(xyz) for xyz in xyzs]
+    for mol in mols:
+        if mol is not None:
+            mol.build()
+    mfs = [scf.RHF(mol).run() if mol is not None else "" for mol in tqdm(mols, 'mapping HOMO LUMO')]
+    homo_lumo_list = [find_homo_lumo(mf) for mf in mfs]
+    
+    homo_lumo_cot = [f" The HOMO of the molecule is {homo} and the LUMO of the molecule is {lumo}." if homo is not None else " The HOMO LUMO values are unavailable." for homo, lumo in homo_lumo_list]
+    
+    return homo_lumo_cot
+
+def map_3d_cot(smiles_list):
+    mols = [Chem.MolFromSmiles(smi) for smi in smiles_list]
+    for mol in mols:
+        rdDepictor.Compute2DCoords(mol)
+    mols = [Chem.AddHs(mol) for mol in mols]
+    for mol in mols:
+        rdDistGeom.EmbedMolecule(mol)
+    confs = [mol.GetConformer() for mol in mols]
+    atom_types = [[a.GetSymbol() for a in list(mol.GetAtoms())] for mol in mols]
+    conformer_array = [np.round(conf.GetPositions(),2) for conf in confs]
+    # conformer_list = [str(np.round(conf.GetPositions(),2)).replace('\n', ',') for conf in confs]
+    conformer_list = [[str(atom)+' '+str(conformer).replace(']', '').replace('[', '') for atom, conformer in zip(atoms, conformers) if atom != 'H'] for atoms, conformers in zip(atom_types, conformer_array)]
+    conformer_list = ['\n'.join(conformer) for conformer in conformer_list]
+    # for mol in mols:
+        # AllChem.EmbedMolecule(mol)
+    # xyzs = [MolToXYZBlock(mol).split('\n\n')[1] for mol in mols]
+    
+    # conformer_list = [str(np.round(conf.GetPositions(),2)).replace('\n', ',') for conf in confs]
+    conformer_cot = [f" The conformer of the molecule is {conformer}." for conformer in conformer_list]
+    
+    return conformer_cot
+
 def smiles2chem_functional_group(smi, fgmol_dict):
     mol = Chem.MolFromSmiles(smi)
     fg_list = []
