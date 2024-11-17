@@ -2,7 +2,7 @@
 
 #SBATCH -J t2m-chemt5-small-mr
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A6000
+#SBATCH -p A5000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
 
@@ -26,8 +26,8 @@ srun python model/one_stage_generator_mol2text.py \
 --architecture multitask-text-and-chemistry-t5-small-standard \
 --cot_mode mr \
 --wandb_mode online \
---train_batch_size 32 \
---eval_batch_size 32 \
+--train_batch_size 8 \
+--eval_batch_size 8 \
 --epochs 250 \
 --model_id GT4SD \
 --weight_decay 0 \
