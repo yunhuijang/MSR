@@ -22,7 +22,7 @@ from rdkit.Chem.rdchem import EditableMol
 from rdkit.Chem import FindMolChiralCenters, rdMolDescriptors, rdDepictor, rdDistGeom
 import requests
 import numpy as np
-from pyscf import gto, scf, lo, tools
+from pyscf import gto, scf
 from rdkit.Chem.rdmolfiles import MolToXYZBlock
 from scipy.constants import physical_constants
 HARTREE_TO_EV_FACTOR = dict(physical_constants)['Hartree energy in eV'][0]

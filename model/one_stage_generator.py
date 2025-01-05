@@ -9,7 +9,7 @@ os.environ["WANDB__SERVICE_WAIT"] = "300"
 
 import pandas as pd
 from transformers import AutoTokenizer
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 from transformers import DataCollatorForSeq2Seq, AutoModelForSeq2SeqLM, Seq2SeqTrainingArguments, Seq2SeqTrainer
 from transformers.integrations import WandbCallback
 
@@ -33,36 +33,58 @@ class FineTuneTranslator(pl.LightningModule):
         hparams = argparse.Namespace(**hparams) if isinstance(hparams, dict) else hparams
         self.save_hyperparameters(hparams)
         self.base_arch = self.hparams.architecture.split('-')[0]
+        self.dataset_name = self.hparams.dataset_name
+        self.task_name = 'text2mol'
         self.run_name = map_cot_mode(hparams)
         self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
+
         
     
     def load_dataset(self, split):
         # <FIX> Need to be fixed when CoT added
         
-        if self.base_arch == 'biot5':
-            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
-                data = json.load(f)
-            description_list = [d['input'] for d in data['Instances']]
-            gt_selfies_list = [d['output'][0] for d in data['Instances']]
-            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
-            id_list = [d['id'] for d in data['Instances']]
-            data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
+        if self.dataset_name == 'lm':
+            if split == 'train':
+                dataset = load_dataset("language-plus-molecules/LPM-24_train", split='train')
+            # elif split == 'test':
+            #     if self.task_name == 'mol2text':
+            #         dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption")
+            #     elif self.task_name == 'text2mol':
+            #         dataset = load_dataset("language-plus-molecules/LPM-24_eval-molgen")
+            else:
+                dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
+            dataset = dataset.rename_column("molecule", "smiles")
+            dataset = dataset.rename_column("caption", "description")  
+            dataset = dataset
+            data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
+            data_dict = map_cot_to_smiles_list(dataset['smiles'], self.hparams, data_dict, split)
+            dataset = Dataset.from_dict(data_dict)
+            pass
+            # TODO: map_cot_to_smiles_list
         else:
-            smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
-            smiles_pair_list = [
-            [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-            ][1:]
-            description_list = [pair[2] for pair in smiles_pair_list]
-            gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-            id_list = [pair[0] for pair in smiles_pair_list]
-            data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
-        
-        data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
-        dataset = Dataset.from_dict(data_dict)
-        
+            if self.base_arch == 'biot5':
+                with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+                    data = json.load(f)
+                description_list = [d['input'] for d in data['Instances']]
+                gt_selfies_list = [d['output'][0] for d in data['Instances']]
+                gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
+                id_list = [d['id'] for d in data['Instances']]
+                data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
+            else:
+                smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+                smiles_pair_list = [
+                [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+                ][1:]
+                description_list = [pair[2] for pair in smiles_pair_list]
+                gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+                id_list = [pair[0] for pair in smiles_pair_list]
+                data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+            
+            data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
+            dataset = Dataset.from_dict(data_dict)
+            
         return dataset
     
     def setup_datasets(self, hparams):
@@ -105,11 +127,11 @@ class FineTuneTranslator(pl.LightningModule):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='biot5-plus-base', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large', 'biot5-plus-base-chebi20',  'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
                                                                                         'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'])
-        parser.add_argument("--cot_mode", type=str, default='', 
+        parser.add_argument("--cot_mode", type=str, default='ring', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -131,6 +153,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--is_iterative', action='store_true')
+        parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
 
 
         return parser
