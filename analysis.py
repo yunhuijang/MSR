@@ -347,7 +347,7 @@ def compute_cot_accuracy(gt_cot_list, predicted_cot_list, cot_mode='ring', base_
         is_weight = False
         print(f'Analysis for {mode}')
         predicted_cot_list = [cot.replace('..', '.') for cot in predicted_cot_list]
-        cur_predicted_cot_list = [pred.split('\t')[i] if len(pred.split('.'))>i else "" for pred in predicted_cot_list]
+        cur_predicted_cot_list = [pred.split('\t')[i] if len(pred.split('\t'))>i else "" for pred in predicted_cot_list]
         if base_arch == 'biot5':
             cur_predicted_cot_list = [post_process_cot(pred, mode) for _, pred in enumerate(cur_predicted_cot_list)]
         
