@@ -23,7 +23,7 @@ nvidia-smi
 
 
 srun python model/reasoning_generator.py \
---architecture multitask-text-and-chemistry-t5-small-standard \
+--architecture multitask-text-and-chemistry-t5-base-standard \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
 --train_batch_size 8 \
