@@ -60,7 +60,6 @@ class FineTuneTranslator(pl.LightningModule):
                     dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
             dataset = dataset.rename_column("molecule", "smiles")
             dataset = dataset.rename_column("caption", "description")  
-            dataset = dataset[:50]
             data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
             data_dict = map_cot_to_smiles_list(dataset['smiles'], self.hparams, data_dict, split)
             dataset = Dataset.from_dict(data_dict)
