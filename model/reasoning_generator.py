@@ -38,7 +38,7 @@ class FineTuneReasoning(FineTuneTranslator):
     @staticmethod
     def add_args(parser):
         parser.add_argument("--architecture", type=str, default='multitask-text-and-chemistry-t5-small-standard')
-        parser.add_argument("--cot_mode", type=str, default='homo_lumo-fingerprint', 
+        parser.add_argument("--cot_mode", type=str, default='chain-aromatic-con_ring_name-func_simple-chiral', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
@@ -49,7 +49,7 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument("--weight_decay", type=float, default=0.01)
         parser.add_argument("--epochs", type=int, default=100)
         parser.add_argument("--task", type=str, default='', choices=['', '-caption2smiles'])
-        parser.add_argument("--check_val_every_n_epoch", type=int, default=1)
+        parser.add_argument("--check_val_every_n_epoch", type=int, default=5)
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
@@ -58,7 +58,8 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
-        parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
+        parser.add_argument('--dataset_name', type=str, default='lm', choices=['molt5', 'lm'])
+        parser.add_argument('--is_lm_eval', action='store_true')
 
         return parser
     
