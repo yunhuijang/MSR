@@ -30,7 +30,7 @@ from model.one_stage_generator import FineTuneTranslator, WandbPredictionProgres
 class FineTuneTranslatorMol2Text(FineTuneTranslator):
     def __init__(self, hparams):
         super(FineTuneTranslatorMol2Text, self).__init__(hparams)
-        self.task_name = 'mol2text'
+        
     
     def preprocess_function(self, examples, split):
         inputs = examples["smiles"]
@@ -63,7 +63,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='multitask-text-and-chemistry-t5-small-standard', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
@@ -85,14 +85,15 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_true')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='GT4SD', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--force', action='store_true')
-        parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
+        parser.add_argument('--dataset_name', type=str, default='lm', choices=['molt5', 'lm'])
         parser.add_argument('--is_lm_eval', action='store_true')
+        parser.add_argument('--task_name', type=str, default='mol2text')
 
         return parser
 
@@ -120,16 +121,23 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
         # wandb logging
         table = self._wandb.Table(data=result_data,
                     columns=columns)
-        self._wandb.log({f"Prediction": table})
-                
         bleu2, bleu4, rouge_1, rouge_2, rouge_l, meteor_score = \
-                text_translation_metrics.evaluate(
-                    'allenai/scibert_scivocab_uncased', file_name, 512
-                )
-        result = {"BLEU2": round(bleu2, 3), "BLEU4": round(bleu4, 3),
-                "ROUGE1": round(rouge_1, 3), "ROUGE2": round(rouge_2, 3),
-                "ROUGEL": round(rouge_l, 3), "METEOR": round(meteor_score, 3)
-                }
+                    text_translation_metrics.evaluate(
+                        'allenai/scibert_scivocab_uncased', file_name, 512
+                    )
+        if self.hparams.is_eval:
+            self._wandb.log({f"Prediction/eval": table})
+            result = {"eval/BLEU2": round(bleu2, 3), "eval/BLEU4": round(bleu4, 3),
+                    "eval/ROUGE1": round(rouge_1, 3), "eval/ROUGE2": round(rouge_2, 3),
+                    "eval/ROUGEL": round(rouge_l, 3), "eval/METEOR": round(meteor_score, 3)
+                    }
+            
+        else:
+            self._wandb.log({f"Prediction": table})
+            result = {"BLEU2": round(bleu2, 3), "BLEU4": round(bleu4, 3),
+                    "ROUGE1": round(rouge_1, 3), "ROUGE2": round(rouge_2, 3),
+                    "ROUGEL": round(rouge_l, 3), "METEOR": round(meteor_score, 3)
+                    }
         self._wandb.log(result)
         
         
@@ -154,12 +162,14 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
     
     def on_evaluate(self, args, state, control, **kwargs):
         # super().on_evaluate(args, state, control, **kwargs)
-        if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == self.hparams.epochs):
+        eval_frag = False
+        if state.epoch is None:
+            eval_frag = True
+        else:
+            if ((state.epoch + 1) % self.hparams.check_val_every_n_epoch == 0) or (state.epoch == self.hparams.epochs):
+                eval_frag = True
+        if eval_frag:
             print("Start evaluation")
-            # # generate predictions
-            # inputs = self.test_dataset
-            # output = self.model.generate(self.test_dataset_tokenized['input_ids'], max_length=self.hparams.max_length)
-            # print('hi')
             run_name = map_cot_mode(self.hparams)
             
             if self.hparams.generation_mode:
@@ -284,7 +294,9 @@ if __name__ == "__main__":
         file_path = f"checkpoint-{last_index}"        # need to check
         # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         if hparams.is_lm_eval:
-            trainer.evaluate(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.evaluate()
         else:
             trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     

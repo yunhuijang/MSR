@@ -35,12 +35,12 @@ class FineTuneTranslator(pl.LightningModule):
         self.is_lm_eval = self.hparams.is_lm_eval
         self.base_arch = self.hparams.architecture.split('-')[0]
         self.dataset_name = self.hparams.dataset_name
-        self.task_name = 'text2mol'
         self.run_name = map_cot_mode(hparams)
+        self.task_name = hparams.task_name
+
         self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
-
 
         
     
@@ -50,21 +50,17 @@ class FineTuneTranslator(pl.LightningModule):
         if self.dataset_name == 'lm':
             if split == 'train':
                 dataset = load_dataset("language-plus-molecules/LPM-24_train", split='train')
-            # elif split == 'test':
-            #     if self.task_name == 'mol2text':
-            #         dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption")
-            #     elif self.task_name == 'text2mol':
-            #         dataset = load_dataset("language-plus-molecules/LPM-24_eval-molgen")
             else:
                 if self.is_lm_eval:
                     if self.task_name == 'mol2text':
-                        dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption")
+                        dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption", split='train')
                     elif self.task_name == 'text2mol':
-                        dataset = load_dataset("language-plus-molecules/LPM-24_eval-molgen")
+                        dataset = load_dataset("language-plus-molecules/LPM-24_eval-molgen", split='train')
                 else:
                     dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
             dataset = dataset.rename_column("molecule", "smiles")
             dataset = dataset.rename_column("caption", "description")  
+            dataset = dataset[:50]
             data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
             data_dict = map_cot_to_smiles_list(dataset['smiles'], self.hparams, data_dict, split)
             dataset = Dataset.from_dict(data_dict)
@@ -160,6 +156,7 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
         parser.add_argument('--is_lm_eval', action='store_true')
+        parser.add_argument('--task_name', type=str, default='text2mol', choices=['mol2text', 'text2mol'])
 
 
 
@@ -402,7 +399,12 @@ if __name__ == "__main__":
         last_index = sorted([int(i.split('-')[1]) for i in directories])[-1]
         file_path = f"checkpoint-{last_index}"        # need to check
         # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
-        trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+        if hparams.is_lm_eval:
+            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.evaluate()
+        else:
+            trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
     
