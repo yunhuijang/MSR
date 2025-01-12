@@ -294,8 +294,8 @@ if __name__ == "__main__":
         file_path = f"checkpoint-{last_index}"        # need to check
         # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         if hparams.is_lm_eval:
-            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}")
-            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}", device_map=model.device)
+            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}", device_map=model.device)
             trainer.evaluate()
         else:
             trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")

@@ -60,6 +60,7 @@ class FineTuneTranslator(pl.LightningModule):
                     dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
             dataset = dataset.rename_column("molecule", "smiles")
             dataset = dataset.rename_column("caption", "description")  
+            # dataset = dataset[:50]
             data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
             data_dict = map_cot_to_smiles_list(dataset['smiles'], self.hparams, data_dict, split)
             dataset = Dataset.from_dict(data_dict)
@@ -399,8 +400,8 @@ if __name__ == "__main__":
         file_path = f"checkpoint-{last_index}"        # need to check
         # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
         if hparams.is_lm_eval:
-            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}")
-            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}")
+            trainer.model = T5ForConditionalGeneration.from_pretrained(f"output/{hparams.run_id}/{file_path}", device_map=model.device)
+            trainer.tokenizer = T5Tokenizer.from_pretrained(f"output/{hparams.run_id}/{file_path}", device_map=model.device)
             trainer.evaluate()
         else:
             trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
