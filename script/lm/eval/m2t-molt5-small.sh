@@ -39,5 +39,5 @@ srun python model/one_stage_generator_mol2text.py \
 --generation_mode \
 --max_new_tokens 512 \
 --dataset_name lm \
---run_id jm9mzln4 \
+--run_id rg9ntaji \
 --is_lm_eval
