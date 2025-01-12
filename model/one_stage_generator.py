@@ -32,6 +32,7 @@ class FineTuneTranslator(pl.LightningModule):
         super(FineTuneTranslator, self).__init__()
         hparams = argparse.Namespace(**hparams) if isinstance(hparams, dict) else hparams
         self.save_hyperparameters(hparams)
+        self.is_lm_eval = self.hparams.is_lm_eval
         self.base_arch = self.hparams.architecture.split('-')[0]
         self.dataset_name = self.hparams.dataset_name
         self.task_name = 'text2mol'
@@ -39,6 +40,7 @@ class FineTuneTranslator(pl.LightningModule):
         self.setup_model(hparams)
         self.setup_datasets(hparams)        
         self.sanity_checked = False
+
 
         
     
@@ -54,15 +56,16 @@ class FineTuneTranslator(pl.LightningModule):
             #     elif self.task_name == 'text2mol':
             #         dataset = load_dataset("language-plus-molecules/LPM-24_eval-molgen")
             else:
-                dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
+                if self.is_lm_eval:
+                    dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption")
+                else:
+                    dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
             dataset = dataset.rename_column("molecule", "smiles")
             dataset = dataset.rename_column("caption", "description")  
-            dataset = dataset
+            dataset = dataset[:50]
             data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
             data_dict = map_cot_to_smiles_list(dataset['smiles'], self.hparams, data_dict, split)
             dataset = Dataset.from_dict(data_dict)
-            pass
-            # TODO: map_cot_to_smiles_list
         else:
             if self.base_arch == 'biot5':
                 with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
@@ -147,13 +150,15 @@ class FineTuneTranslator(pl.LightningModule):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='GT4SD', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         parser.add_argument('--warmup_ratio', type=float, default=0)
         parser.add_argument('--lr_scheduler_type', type=str, default='linear')
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
+        parser.add_argument('--is_lm_eval', action='store_true')
+
 
 
         return parser

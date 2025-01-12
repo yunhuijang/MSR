@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J t2m-molt5-base-reason
+#SBATCH -J t2m-molt5-small-reason
 #SBATCH --exclude=n76,n56,n54,n52
 #SBATCH -p A100-80GB
 #SBATCH --gres=gpu:4
@@ -25,7 +25,7 @@ nvidia-smi
 
 
 srun python model/reasoning_generator.py \
---architecture molt5-base \
+--architecture molt5-small \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
 --wandb_mode online \
 --train_batch_size 8 \

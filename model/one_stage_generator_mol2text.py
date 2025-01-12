@@ -92,6 +92,7 @@ class FineTuneTranslatorMol2Text(FineTuneTranslator):
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--force', action='store_true')
         parser.add_argument('--dataset_name', type=str, default='molt5', choices=['molt5', 'lm'])
+        parser.add_argument('--is_lm_eval', action='store_true')
 
         return parser
 
@@ -191,11 +192,16 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
             gt_description = decoded_labels
             predicted_description = decoded_preds
             
-                
-            if hparams.force:
-                file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}-force.txt'
+            if hparams.dataset_name == 'lm':
+                if hparams.is_lm_eval:
+                    file_name = f'predictions/ft_cot_mol2text/lm-eval-{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+                else:
+                    file_name = f'predictions/ft_cot_mol2text/lm-{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             else:
-                file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+                if hparams.force:
+                    file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}-force.txt'
+                else:
+                    file_name = f'predictions/ft_cot_mol2text/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
             smiles_list = self.test_dataset['smiles']
 
             self.log_description_results(file_name, smiles_list, gt_description, predicted_description)
@@ -269,6 +275,7 @@ if __name__ == "__main__":
     wandb.config.update(hparams, allow_val_change=True)
     trainer.add_callback(wandb_callback)
     
+    
     if hparams.run_id == '':
         trainer.train()
     else:
@@ -276,7 +283,10 @@ if __name__ == "__main__":
         last_index = sorted([int(i.split('-')[1]) for i in directories])[-1]
         file_path = f"checkpoint-{last_index}"        # need to check
         # trainer.model._load_optimizer_and_scheduler(f"output/{hparams.run_id}/{file_path}")
-        trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+        if hparams.is_lm_eval:
+            trainer.evaluate(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
+        else:
+            trainer.train(resume_from_checkpoint=f"output/{hparams.run_id}/{file_path}")
     
     wandb.finish()
     

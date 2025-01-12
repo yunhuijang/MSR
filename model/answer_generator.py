@@ -9,7 +9,7 @@ os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
 os.environ["WANDB__SERVICE_WAIT"] = "300"
 from pathlib import Path
-from datasets import Dataset
+from datasets import Dataset, load_dataset
 import json
 from accelerate import Accelerator
 
@@ -26,36 +26,57 @@ class FineTuneAnswer(FineTuneTranslator):
         super(FineTuneAnswer, self).__init__(hparams)
     
     def load_dataset(self, split):
-        
-        if self.base_arch == 'biot5':
-            with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
-                data = json.load(f)
-            description_list = [d['input'] for d in data['Instances']]
-            gt_selfies_list = [d['output'][0] for d in data['Instances']]
-            gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
-            id_list = [d['id'] for d in data['Instances']]
-            data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
+        if self.dataset_name == 'lm':
+            if split == 'train':
+                dataset = load_dataset("language-plus-molecules/LPM-24_train", split='train')
+            else:
+                if self.is_lm_eval:
+                    dataset = load_dataset("language-plus-molecules/LPM-24_eval-caption")
+                else:
+                    dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
+            dataset = dataset.rename_column("molecule", "smiles")
+            dataset = dataset.rename_column("caption", "description")  
+            dataset = dataset[:50]
+            data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
+            gt_smiles_list = dataset['smiles']
         else:
-            smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
-            smiles_pair_list = [
-            [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
-            ][1:]
-            description_list = [pair[2] for pair in smiles_pair_list]
-            gt_smiles_list = [pair[1] for pair in smiles_pair_list]
-            id_list = [pair[0] for pair in smiles_pair_list]
-            data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
+            if self.base_arch == 'biot5':
+                with open(f'ChEBI-20_data/text2mol_{split}.json', 'r') as f:
+                    data = json.load(f)
+                description_list = [d['input'] for d in data['Instances']]
+                gt_selfies_list = [d['output'][0] for d in data['Instances']]
+                gt_smiles_list = [selfies_to_smiles(sf[5:-5]) for sf in gt_selfies_list]
+                id_list = [d['id'] for d in data['Instances']]
+                data_dict = {'id': id_list, 'smiles': gt_selfies_list, 'description': description_list}
+            else:
+                smiles_list_path = os.path.join('ChEBI-20_data', f'{split}.txt')
+                smiles_pair_list = [
+                [pair.split()[0], pair.split()[1], " ".join(pair.split()[2:])] for pair in Path(smiles_list_path).read_text(encoding="utf-8").splitlines()
+                ][1:]
+                description_list = [pair[2] for pair in smiles_pair_list]
+                gt_smiles_list = [pair[1] for pair in smiles_pair_list]
+                id_list = [pair[0] for pair in smiles_pair_list]
+                data_dict = {'id': id_list, 'smiles': gt_smiles_list, 'description': description_list}
             
         if split in ['train', 'validation']:
             data_dict = map_cot_to_smiles_list(gt_smiles_list, self.hparams, data_dict, split)
             
         else:
-            if hasattr(hparams, "select_cot_mode"):
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.hparams.cot_mode}.txt'
+            if self.hparams.dataset_name == 'lm':
+                file_path = 'lm-'
             else:
-                # if self.hparams.is_true:
-                #     file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}-true.txt'
-                # else:
-                file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
+                file_path = ''
+            file_path += f'{self.hparams.architecture}{self.hparams.task}'
+            if hasattr(hparams, "select_cot_mode"):
+                file_path += self.hparams.cot_mode
+            else:
+                file_path += self.run_name
+            file_name = f'predictions/two_stage_ft_cot/reasoning/{file_path}.txt'
+            
+            # if hasattr(hparams, "select_cot_mode"):
+                # file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.hparams.cot_mode}.txt'
+            # else:
+                # file_name = f'predictions/two_stage_ft_cot/reasoning/{self.hparams.architecture}{self.hparams.task}{self.run_name}.txt'
             cot_list = [pair.split('\t')[-1] for pair in Path(file_name).read_text(encoding="utf-8").splitlines()][1:]
             cot_list = [" "+cot for cot in cot_list]
             cot_list_final = cot_list
@@ -72,8 +93,7 @@ class FineTuneAnswer(FineTuneTranslator):
             data_dict['cot'] = cot_list_final[:len(gt_smiles_list)]
 
         dataset = Dataset.from_dict(data_dict)
-        
-        
+            
         return dataset
     
     
@@ -96,16 +116,16 @@ class FineTuneAnswer(FineTuneTranslator):
     
     @staticmethod
     def add_args(parser):
-        parser.add_argument("--architecture", type=str, default='molt5-small', choices=['molt5-small', 'molt5-base', 'molt5-large',
+        parser.add_argument("--architecture", type=str, default='multitask-text-and-chemistry-t5-small-standard', choices=['molt5-small', 'molt5-base', 'molt5-large',
                                                                                         'biot5-base', 'biot5-plus-base', 'biot5-plus-large',
                                                                                         'biot5-plus-base-chebi20', 'biot5-base-mol2text', 'biot5-base-text2mol',
                                                                                         'multitask-text-and-chemistry-t5-base-standard', 'multitask-text-and-chemistry-t5-small-standard',
                                                                                         'multitask-text-and-chemistry-t5-base-augm', 'multitask-text-and-chemistry-t5-small-augm'])
-        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name', 
+        parser.add_argument("--cot_mode", type=str, default='multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral', 
                         help="Choices: func, scaffold, chain, fragment, ring, \
                             multiset_simple/full/formula/type \
                             aromatic, ring_name, con_ring_name, iupac")
-        parser.add_argument("--select_cot_mode", type=str, default='chain-aromatic-con_ring_name-func_simple-chiral')
+        parser.add_argument("--select_cot_mode", type=str, default='aromatic-con_ring_name-func_simple')
         parser.add_argument("--wandb_mode", type=str, default='disabled')
         parser.add_argument("--learning_rate", type=float, default=1e-3)
         parser.add_argument("--train_batch_size", type=int, default=3)
@@ -117,7 +137,7 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_length', type=int, default=512)
         parser.add_argument('--test', action='store_false')
         parser.add_argument('--run_id', type=str, default='')
-        parser.add_argument('--model_id', type=str, default='laituan245', choices=['laituan245', 'QizhiPei', 'GT4SD'])
+        parser.add_argument('--model_id', type=str, default='GT4SD', choices=['laituan245', 'QizhiPei', 'GT4SD'])
         # cot correction iteration
         parser.add_argument('--is_iterative', action='store_true')
         parser.add_argument('--num_iter', type=int, default=5)
@@ -126,6 +146,8 @@ class FineTuneAnswer(FineTuneTranslator):
         parser.add_argument('--max_new_tokens', type=int, default=512)
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--is_true', action='store_true')
+        parser.add_argument('--dataset_name', type=str, default='lm', choices=['molt5', 'lm'])
+        parser.add_argument('--is_lm_eval', action='store_true')
 
 
         return parser
@@ -158,13 +180,17 @@ class WandbAnswerProgressCallback(WandbPredictionProgressCallback):
                 
                 max_matching_index = np.argmax(cot_align_list, axis=1)
                 predicted_smiles = [elem[0] for elem in np.take_along_axis(np.array(pred_smiles), max_matching_index[..., None], axis=1).tolist()]
-                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-iter.txt'
+                if self.hparams.dataset_name == 'lm':
+                    file_name = f'predictions/two_stage_ft_cot/answer/lm-{self.hparams.architecture}{self.hparams.task}{run_name}-iter.txt'
+                else:
+                    file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-iter.txt'
             else:
                 gt_smiles, predicted_smiles = self.generaate_samples(self.test_dataset, generation_mode=self.hparams.generation_mode)
-                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+                if self.hparams.dataset_name == 'lm':
+                    file_name = f'predictions/two_stage_ft_cot/answer/lm-{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
+                else:
+                    file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}.txt'
                 
-            if self.hparams.is_true:
-                file_name = f'predictions/two_stage_ft_cot/answer/{self.hparams.architecture}{self.hparams.task}{run_name}-true.txt'
             description_list = self.test_dataset['description']
             
             with open(f'{file_name}', 'w') as f:
