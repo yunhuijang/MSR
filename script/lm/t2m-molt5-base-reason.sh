@@ -2,10 +2,9 @@
 
 #SBATCH -J t2m-molt5-base-reason
 #SBATCH --exclude=n76,n56,n54,n52
-#SBATCH -p A100-80GB
+#SBATCH -p A6000
 #SBATCH --gres=gpu:4
 #SBATCH -o sbatch_log/%x.out
-#SBATCH -q hpgpu
 
 
 cd $SLURM_SUBMIT_DIR

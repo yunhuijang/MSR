@@ -36,7 +36,7 @@ class FineTuneAnswer(FineTuneTranslator):
                     dataset = load_dataset(f"language-plus-molecules/LPM-24_train", split='split_valid')
             dataset = dataset.rename_column("molecule", "smiles")
             dataset = dataset.rename_column("caption", "description")  
-            dataset = dataset[:50]
+            # dataset = dataset
             data_dict = {'smiles': dataset['smiles'], 'description': dataset['description']}
             gt_smiles_list = dataset['smiles']
         else:
