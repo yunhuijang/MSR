@@ -60,6 +60,7 @@ class FineTuneReasoning(FineTuneTranslator):
         parser.add_argument('--generation_mode', action='store_true')
         parser.add_argument('--dataset_name', type=str, default='lm', choices=['molt5', 'lm'])
         parser.add_argument('--is_lm_eval', action='store_true')
+        parser.add_argument('--task_name', type=str, default='text2mol')
 
         return parser
     
