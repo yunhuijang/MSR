@@ -25,11 +25,11 @@ nvidia-smi
 
 srun python model/reasoning_generator.py \
 --architecture molt5-small \
---cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral \
+--cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
---epochs 250 \
+--epochs 100 \
 --model_id laituan245 \
 --max_length 820 \
 --generation_mode \
