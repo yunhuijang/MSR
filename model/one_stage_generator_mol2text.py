@@ -125,7 +125,7 @@ class WandbPredictionProgressCallbackMol2Text(WandbPredictionProgressCallback):
                     text_translation_metrics.evaluate(
                         'allenai/scibert_scivocab_uncased', file_name, 512
                     )
-        if self.hparams.is_eval:
+        if self.hparams.is_lm_eval:
             self._wandb.log({f"Prediction/eval": table})
             result = {"eval/BLEU2": round(bleu2, 3), "eval/BLEU4": round(bleu4, 3),
                     "eval/ROUGE1": round(rouge_1, 3), "eval/ROUGE2": round(rouge_2, 3),
