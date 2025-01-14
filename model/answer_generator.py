@@ -7,7 +7,7 @@ from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 os.environ['CUDA_VISIBLE_DEVICES']='0'
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+os.environ["WANDB__SERVICE_WAIT"] = "1000"
 from pathlib import Path
 from datasets import Dataset, load_dataset
 import json

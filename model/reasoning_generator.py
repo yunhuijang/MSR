@@ -7,7 +7,7 @@ from transformers import Seq2SeqTrainingArguments, Seq2SeqTrainer
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
 # os.environ['CUDA_VISIBLE_DEVICES']='1'
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+os.environ["WANDB__SERVICE_WAIT"] = "1000"
 from accelerate import Accelerator
 from tqdm import tqdm
 

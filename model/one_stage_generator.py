@@ -5,7 +5,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration
 import argparse
 import os
 os.environ['CUDA_DEVICE_ORDER']='PCI_BUS_ID'
-os.environ["WANDB__SERVICE_WAIT"] = "300"
+os.environ["WANDB__SERVICE_WAIT"] = "1000"
 
 import pandas as pd
 from transformers import AutoTokenizer
