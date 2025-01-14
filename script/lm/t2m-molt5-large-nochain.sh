@@ -27,6 +27,7 @@ nvidia-smi
 srun python model/one_stage_generator.py \
 --architecture molt5-large \
 --cot_mode aromatic-con_ring_name-func_simple \
+--select_cot_mode aromatic-con_ring_name-func_simple \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
