@@ -39,4 +39,5 @@ srun python model/reasoning_generator.py \
 --max_length 820 \
 --generation_mode \
 --max_new_tokens 512 \
---dataset_name lm
+--dataset_name lm \
+--is_iterative

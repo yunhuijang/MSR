@@ -41,4 +41,5 @@ srun python model/answer_generator.py \
 --learning_rate 2e-4 \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \
---dataset_name lm
+--dataset_name lm \
+--is_iterative
