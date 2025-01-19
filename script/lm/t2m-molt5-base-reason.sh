@@ -29,7 +29,7 @@ srun python model/reasoning_generator.py \
 --wandb_mode online \
 --train_batch_size 8 \
 --eval_batch_size 8 \
---epochs 250 \
+--epochs 100 \
 --model_id laituan245 \
 --max_length 820 \
 --generation_mode \
@@ -39,4 +39,5 @@ srun python model/reasoning_generator.py \
 --learning_rate 2e-4 \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \
---dataset_name lm
+--dataset_name lm \
+--run_id xtxttxv2
