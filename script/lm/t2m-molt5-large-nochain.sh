@@ -42,4 +42,5 @@ srun python model/one_stage_generator.py \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \
 --dataset_name lm \
---is_iterative
+--is_iterative \
+--run_id 6yssi7y4
