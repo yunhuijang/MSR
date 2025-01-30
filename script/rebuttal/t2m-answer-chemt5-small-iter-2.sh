@@ -16,6 +16,7 @@ python model/answer_generator.py \
 --warmup_ratio 0 \
 --lr_scheduler_type linear \
 --is_iterative \
+--dataset_name molt5 \
 --num_iter 2
 
 
