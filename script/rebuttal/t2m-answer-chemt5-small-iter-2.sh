@@ -1,4 +1,28 @@
-python model/answer_generator.py \
+#!/bin/sh
+
+#SBATCH -J t2m-chemt5-small-answer-2
+#SBATCH --exclude=n76,n56,n54,n52
+#SBATCH -p A5000
+#SBATCH --gres=gpu:4
+#SBATCH -o sbatch_log/%x.out
+
+cd $SLURM_SUBMIT_DIR
+
+echo "SLURM_SUBMIT_DIR=$SLURM_SUBMIT_DIR"
+echo "CUDA_HOME=$CUDA_HOME"
+echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+echo "CUDA_VERSION=$CUDA_VERSION"
+
+srun -l /bin/hostname
+srun -l /bin/pwd
+srun -l /bin/date
+
+date
+
+nvidia-smi
+
+
+srun python model/answer_generator.py \
 --architecture multitask-text-and-chemistry-t5-small-standard \
 --cot_mode multiset_formula-chain-aromatic-con_ring_name-func_simple-chiral-weight-name \
 --select_cot_mode chain-aromatic-con_ring_name-func_simple-chiral \
