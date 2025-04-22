@@ -18,7 +18,7 @@ import wandb
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-openai_key = 'sk-86W_hKeqPXa8NlsLLF7XLA_NcVg7b3iBQcb_DWVtBxT3BlbkFJ4mJKz2zamauzjIfyl1SGl9K9CQ0PNSjcZIl7_HkQAA'
+openai_key = ''
 os.environ['OPENAI_API_KEY'] = openai_key   
 
 
