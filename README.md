@@ -1,7 +1,6 @@
-# MolStructCoT: Structure-aware CoT for molecules
+# Structural Reasoning Improves Molecular Understanding of LLM
 
-Our code is based on https://github.com/blender-nlp/MolT5.
-Copyright (c) 2023, blender-nlp
+In this repository, we implement the paper: Structural Reasoning Improves Molecular Understanding of LLM (MSR) in ACL 2025.
 
 ### Checkpoints
 We provide a few checkpoints due to the storage limit of anonymous GitHub.
@@ -20,3 +19,6 @@ Note that you need to use your openai and huggingface key.
 ### Datasets
  - [ChEBI-20](https://github.com/blender-nlp/MolT5/tree/main/ChEBI-20_data) (txt format)
 
+
+Our code is based on https://github.com/blender-nlp/MolT5.
+Copyright (c) 2023, blender-nlp
