@@ -4,9 +4,9 @@
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/)
 
 <div align="center">
-  <a href="https://github.com/yunhuijang">Yunhui Jang</a><sup>1</sup> &ensp; <b>&middot;</b> &ensp;
-  <a href="">Jaehyung Kim</a><sup>2</sup> &ensp; <b>&middot;</b> &ensp;
-  <a href="">Sungsoo Ahn</a><sup>1</sup>
+  <a href="https://yunhuijang.github.io">Yunhui Jang</a><sup>1</sup> &ensp; <b>&middot;</b> &ensp;
+  <a href="https://sites.google.com/view/jaehyungkim">Jaehyung Kim</a><sup>2</sup> &ensp; <b>&middot;</b> &ensp;
+  <a href="https://sungsoo-ahn.github.io">Sungsoo Ahn</a><sup>1</sup>
   <br>
   <sup>1</sup>KAIST &emsp; <sup>2</sup>Yonsei University
 </div>
