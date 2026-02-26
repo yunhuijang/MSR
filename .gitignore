@@ -175,4 +175,4 @@ wandb/
 *.json
 *.pt
 output/
-script/specialist/
+script/generalist/
