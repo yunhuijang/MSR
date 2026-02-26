@@ -164,10 +164,22 @@ Combine features with `-` separator (e.g., `chain-aromatic-func_simple`).
 ## Citation
 
 ```bibtex
-@inproceedings{jang2025msr,
-    title={Structural Reasoning Improves Molecular Understanding of LLM},
-    author={Jang, Yunhui and Kim, Jaehyung and Ahn, Sungsoo},
-    booktitle={Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (ACL)},
-    year={2025}
-}
+@inproceedings{jang-etal-2025-structural,
+  title = "Structural Reasoning Improves Molecular Understanding of {LLM}",
+  author = "Jang, Yunhui  and
+    Kim, Jaehyung  and
+    Ahn, Sungsoo",
+  editor = "Che, Wanxiang  and
+    Nabende, Joyce  and
+    Shutova, Ekaterina  and
+    Pilehvar, Mohammad Taher",
+  booktitle = "Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)",
+  month = jul,
+  year = "2025",
+  address = "Vienna, Austria",
+  publisher = "Association for Computational Linguistics",
+  url = "https://aclanthology.org/2025.acl-long.1023/",
+  doi = "10.18653/v1/2025.acl-long.1023",
+  pages = "21016--21036",
+  ISBN = "979-8-89176-251-0"}
 ```
