@@ -129,8 +129,7 @@ python model/answer_generator.py \
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
 | `--select_cot_mode` | `str` | `aromatic-con_ring_name-func_simple` | Subset of CoT features to use from reasoning output |
-| `--is_iterative` | flag | `False` | matching ratio-
-based rejection sampling with beam search |
+| `--is_iterative` | flag | `False` | matching ratio-based rejection sampling with beam search |
 | `--num_iter` | `int` | `5` | Number of beam search (used with `--is_iterative`) |
 
 #### `--architecture` choices
